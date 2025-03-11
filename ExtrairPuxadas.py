@@ -98,42 +98,87 @@ def processar_cpfs():
             resposta = None
             caminho_arquivo = os.path.join(Config.DOWNLOAD_FOLDER, f"dados_{cpf}.txt")
 
-            for message in client.iter_messages(Config.BOT_USERNAME, limit=1):
-                print(f"🔎 Buscando CPF: {cpf}")
+            # Definindo o tempo máximo de espera (exemplo: 30 segundos)
+            tempo_maximo_espera = 30
+            tempo_inicio = time.time()
 
-                if isinstance(message.media, MessageMediaDocument):
-                    message.download_media(file=caminho_arquivo)
-                    resposta = processar_arquivo_txt(caminho_arquivo)
-                else:
-                    resposta = message.text
+            while time.time() - tempo_inicio < tempo_maximo_espera:
+                for message in client.iter_messages(Config.BOT_USERNAME, limit=1):
+                    print(f"🔎 Buscando CPF: {cpf}")
 
-                if not resposta:
-                    print(f"⚠️ Falha ao obter dados para {cpf}. Reagendando...")
-                    reagendar_cpf_checker(sheet_checker, cpf)
-                    continue
+                    if isinstance(message.media, MessageMediaDocument):
+                        message.download_media(file=caminho_arquivo)
+                        resposta = processar_arquivo_txt(caminho_arquivo)
+                    else:
+                        resposta = message.text
 
-                # Extração de dados
-                nome_info = extrair_info(r'Nome:\s+(.+)', resposta)
-                cpf_info = extrair_info(r'CPF:\s+(\d+)', resposta)
-                nascimento_info = extrair_info(r'Nascimento:\s+([\d-]+)', resposta)
-                sexo_info = extrair_info(r'Sexo:\s+(\w)', resposta)
-                renda_info = extrair_info(r'Renda Atual:\s+(\d+)', resposta)
-                poder_aquisitivo_info = extrair_info(r'Poder aquisitivo:\s*([^\n\r]+)', resposta)
+                    if resposta:
+                        break  # Resposta obtida, sai do loop de espera
 
-                # Define status conforme poder aquisitivo
-                status = "Enviada" if poder_aquisitivo_info not in ["BAIXO", "MUITO BAIXO", "MEDIO BAIXO","Não Informado"] else "Não Enviada"
+                if resposta:
+                    break  # Se a resposta foi recebida, sai do loop principal
 
-                # Inserir dados na planilha
-                sheet_data.append_row([cpf_info, nascimento_info, nome_info, sexo_info, renda_info, poder_aquisitivo_info, status, obter_data_hora()])
-                
-                # Excluir arquivo após uso com segurança
+            if not resposta:
+                print(f"⚠️ Falha ao obter dados para {cpf}. Reagendando...")
+                reagendar_cpf_checker(sheet_checker, cpf)
+                # A linha de status não será marcada como "Enviada"
+                continue
+
+            # Extração de dados
+            nome_info = extrair_info(r'Nome:\s+(.+)', resposta)
+            cpf_info = extrair_info(r'CPF:\s+(\d+)', resposta)
+            nascimento_info = extrair_info(r'Nascimento:\s+([\d-]+)', resposta)
+            sexo_info = extrair_info(r'Sexo:\s+(\w)', resposta)
+            renda_info = extrair_info(r'Renda Atual:\s+(\d+)', resposta)
+            poder_aquisitivo_info = extrair_info(r'Poder aquisitivo:\s*([^\n\r]+)', resposta)
+
+            # ✅ Ajusta o formato do sexo
+            sexo_map = {"M": "Masculino", "F": "Feminino", "I": "Indefinido"}
+            sexo_info = sexo_map.get(sexo_info, "Indefinido")
+
+            # ✅ Formatar a data de nascimento para o padrão brasileiro (DD/MM/YYYY)
+            if nascimento_info != "Não Informado":
                 try:
-                    if os.path.exists(caminho_arquivo):
-                        os.remove(caminho_arquivo)
-                except Exception as e:
-                    print(f"⚠️ Erro ao excluir {caminho_arquivo}: {e}")
+                    nascimento_info = datetime.strptime(nascimento_info, "%Y-%m-%d").strftime("%d/%m/%Y")
+                except ValueError:
+                    nascimento_info = "Não Informado"  # Caso a conversão falhe
 
+            # ✅ Captura apenas o primeiro número de celular encontrado
+            telefone_info = re.findall(r'Telefone:\s+\((\d{2})\)(9\d{8})', resposta)
+            telefone_final = f"({telefone_info[0][0]}){telefone_info[0][1]}" if telefone_info else "Não Informado"
+
+            # ✅ Captura o primeiro email encontrado
+            email_info = re.findall(r'Email:\s+([^\s]+)', resposta)
+            email_final = email_info[0] if email_info else "Não Informado"
+
+            # ✅ Separar nome e sobrenome
+            nome_split = nome_info.split()
+            nome = nome_split[0] if nome_split else "Não Informado"
+            sobrenome = " ".join(nome_split[1:]) if len(nome_split) > 1 else "Não Informado"
+
+            # ✅ Define status baseado no poder aquisitivo
+            status = "Enviada" if "BAIXO" not in poder_aquisitivo_info.upper() and poder_aquisitivo_info != "Não Informado" else "Não Enviada"
+
+            # ✅ Adiciona data e hora da extração
+            data_hora_extracao = obter_data_hora()
+
+            # ✅ Inserir os dados na planilha corretamente
+            sheet_data.append_row([
+                cpf_info, nascimento_info, email_final, nome, sobrenome,
+                telefone_final, sexo_info, renda_info, poder_aquisitivo_info,
+                status, data_hora_extracao
+            ])
+            
+            # Excluir arquivo após uso com segurança
+            try:
+                if os.path.exists(caminho_arquivo):
+                    os.remove(caminho_arquivo)
+            except Exception as e:
+                print(f"⚠️ Erro ao excluir {caminho_arquivo}: {e}")
+
+            # Remover CPF da aba 'Checker'
             remover_linha_checker(sheet_checker, cpf)
+
 
 if __name__ == "__main__":
     print("🚀 Iniciando Processamento")
