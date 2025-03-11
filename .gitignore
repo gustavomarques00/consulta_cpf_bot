@@ -1,0 +1,27 @@
+# Ignorar arquivos sensíveis
+.env
+credenciais.json
+
+# Ignorar diretórios de dependências e caches do Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignorar logs e arquivos temporários
+*.log
+logs/
+tmp/
+*.bak
+
+# Ignorar pastas do ambiente virtual do Python
+venv/
+.env/
+.venv/
+
+# Ignorar arquivos do sistema operacional (Windows e Mac)
+.DS_Store
+Thumbs.db
+
+# Ignorar pastas do Telethon
+session_name.session*
