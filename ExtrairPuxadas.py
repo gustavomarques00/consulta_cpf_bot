@@ -3,42 +3,20 @@ import re
 import random
 import os
 import gspread
-import dotenv
 from datetime import datetime
 from telethon.sync import TelegramClient
 from telethon.tl.types import MessageMediaDocument
 from oauth2client.service_account import ServiceAccountCredentials
-
-# ========== CARREGANDO VARIÁVEIS DE AMBIENTE ==========
-dotenv.load_dotenv()
-
-API_ID = os.getenv("API_ID")
-API_HASH = os.getenv("API_HASH")
-PHONE_NUMBER = os.getenv("PHONE_NUMBER")
-BOT_USERNAME = os.getenv("BOT_USERNAME")
-CREDENTIALS_FILE = os.getenv("CREDENTIALS_FILE", "credenciais.json")
-
-SHEET_NAME = os.getenv("SHEET_NAME", "Operação JUVO")
-WORKSHEET_DATA = os.getenv("WORKSHEET_DATA", "Dados")
-WORKSHEET_CHECKER = os.getenv("WORKSHEET_CHECKER", "Checker")
-
-DOWNLOAD_FOLDER = "downloads/"
-
-# ========== VALIDAÇÕES INICIAIS ==========
-if not API_ID or not API_HASH or not PHONE_NUMBER or not BOT_USERNAME:
-    raise ValueError("❌ Erro: Configurações do Telegram não definidas corretamente no .env.")
-
-if not os.path.exists(CREDENTIALS_FILE):
-    raise FileNotFoundError(f"❌ O arquivo {CREDENTIALS_FILE} não foi encontrado! Verifique as credenciais do Google Sheets.")
+from config import Config  # Importando as configurações centralizadas
 
 # ========== FUNÇÕES AUXILIARES ==========
 def autenticar_google_sheets():
-    """Autentica no Google Sheets e retorna o objeto da planilha."""
+    """Autentica no Google Sheets e retorna a planilha."""
     try:
         scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-        creds = ServiceAccountCredentials.from_json_keyfile_name(CREDENTIALS_FILE, scope)
+        creds = ServiceAccountCredentials.from_json_keyfile_name(Config.CREDENTIALS_FILE, scope)
         client = gspread.authorize(creds)
-        return client.open(SHEET_NAME)
+        return client.open(Config.SHEET_NAME)
     except Exception as e:
         print(f"❌ Erro na autenticação do Google Sheets: {e}")
         return None
@@ -56,8 +34,7 @@ def processar_arquivo_txt(caminho_arquivo):
     """Lê e processa as informações contidas no arquivo .txt enviado pelo bot."""
     try:
         with open(caminho_arquivo, "r", encoding="utf-8") as file:
-            resposta = file.read()
-        return resposta
+            return file.read()
     except Exception as e:
         print(f"❌ Erro ao ler o arquivo {caminho_arquivo}: {e}")
         return None
@@ -96,8 +73,12 @@ def processar_cpfs():
     if sheet is None:
         return
 
-    sheet_checker = sheet.worksheet(WORKSHEET_CHECKER)
-    sheet_data = sheet.worksheet(WORKSHEET_DATA)
+    try:
+        sheet_checker = sheet.worksheet(Config.WORKSHEET_CHECKER)
+        sheet_data = sheet.worksheet(Config.WORKSHEET_DATA)
+    except Exception as e:
+        print(f"❌ Erro ao acessar planilhas: {e}")
+        return
 
     # Obtém todas as linhas da aba 'Checker'
     dados_checker = sheet_checker.get_all_values()
@@ -107,17 +88,17 @@ def processar_cpfs():
 
     lista_cpfs = [linha[0] for linha in dados_checker[1:]][::-1]
 
-    with TelegramClient('session_name', API_ID, API_HASH) as client:
-        client.start(PHONE_NUMBER)
+    with TelegramClient('session_name', Config.API_ID, Config.API_HASH) as client:
+        client.start(Config.PHONE_NUMBER)
 
         for cpf in lista_cpfs:
-            client.send_message(BOT_USERNAME, f"/cpf {cpf}")
-            time.sleep(10)  # Aguarda resposta
+            client.send_message(Config.BOT_USERNAME, f"/cpf {cpf}")
+            time.sleep(10)
 
             resposta = None
-            caminho_arquivo = f"{DOWNLOAD_FOLDER}dados_{cpf}.txt"
+            caminho_arquivo = os.path.join(Config.DOWNLOAD_FOLDER, f"dados_{cpf}.txt")
 
-            for message in client.iter_messages(BOT_USERNAME, limit=1):
+            for message in client.iter_messages(Config.BOT_USERNAME, limit=1):
                 print(f"🔎 Buscando CPF: {cpf}")
 
                 if isinstance(message.media, MessageMediaDocument):
@@ -127,11 +108,11 @@ def processar_cpfs():
                     resposta = message.text
 
                 if not resposta:
-                    print(f"⚠️ Falha ao obter dados para o CPF {cpf}. Reagendando...")
+                    print(f"⚠️ Falha ao obter dados para {cpf}. Reagendando...")
                     reagendar_cpf_checker(sheet_checker, cpf)
                     continue
 
-                # Extração segura dos dados
+                # Extração de dados
                 nome_info = extrair_info(r'Nome:\s+(.+)', resposta)
                 cpf_info = extrair_info(r'CPF:\s+(\d+)', resposta)
                 nascimento_info = extrair_info(r'Nascimento:\s+([\d-]+)', resposta)
@@ -145,9 +126,12 @@ def processar_cpfs():
                 # Inserir dados na planilha
                 sheet_data.append_row([cpf_info, nascimento_info, nome_info, sexo_info, renda_info, poder_aquisitivo_info, status, obter_data_hora()])
                 
-                # Excluir arquivo após uso
-                if os.path.exists(caminho_arquivo):
-                    os.remove(caminho_arquivo)
+                # Excluir arquivo após uso com segurança
+                try:
+                    if os.path.exists(caminho_arquivo):
+                        os.remove(caminho_arquivo)
+                except Exception as e:
+                    print(f"⚠️ Erro ao excluir {caminho_arquivo}: {e}")
 
             remover_linha_checker(sheet_checker, cpf)
 

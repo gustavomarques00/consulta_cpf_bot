@@ -1,13 +1,9 @@
 import os
 from telethon import TelegramClient, events
+from config import Config  # Importando configurações centralizadas
 
 # ========== CONFIGURAÇÕES DO BOT ==========
-API_ID = 24458905  # O mesmo ID do script principal
-API_HASH = '76c15cf009ecffbfa917c8c2423a412d'  # O mesmo HASH do script principal
-BOT_TOKEN = '7567654568:AAGx5eJ_ok9Iyd4gbo7danG6I2sk3rL3bIQ'  # Insira o token do bot gerado no BotFather
-
-# Criar cliente do bot
-bot = TelegramClient('orientacao_bot', API_ID, API_HASH).start(bot_token=BOT_TOKEN)
+bot = TelegramClient('orientacao_bot', Config.API_ID, Config.API_HASH).start(bot_token=Config.BOT_TOKEN)
 
 # ========== FUNÇÕES AUXILIARES ==========
 def verificar_ambiente():
@@ -15,7 +11,7 @@ def verificar_ambiente():
     problemas = []
 
     # Verifica se o arquivo de credenciais existe
-    if not os.path.exists("credenciais.json"):
+    if not os.path.exists(Config.CREDENTIALS_FILE):
         problemas.append("❌ O arquivo `credenciais.json` não foi encontrado!")
 
     # Verifica se os pacotes necessários estão instalados
@@ -24,7 +20,7 @@ def verificar_ambiente():
         import oauth2client
         import telethon
     except ImportError:
-        problemas.append("❌ Alguns pacotes necessários não estão instalados! Use o comando: `pip install gspread oauth2client telethon`")
+        problemas.append("❌ Alguns pacotes necessários não estão instalados! Use o comando:\n```bash\npip install -r requirements.txt```")
 
     return problemas
 
@@ -49,10 +45,8 @@ async def instalacao(event):
     """Explica como instalar os pacotes necessários."""
     await event.respond(
         "🔧 **INSTALAÇÃO DOS PACOTES NECESSÁRIOS** 🔧\n\n"
-        "Antes de rodar o script, você precisa instalar alguns pacotes. Execute este comando no terminal:\n"
-        "```\n"
-        "pip install gspread oauth2client telethon\n"
-        "```\n"
+        "Antes de rodar o script, você precisa instalar os pacotes necessários. Execute este comando no terminal:\n"
+        "```bash\npip install -r requirements.txt```\n\n"
         "Depois que os pacotes forem instalados, você pode configurar o script digitando `/configuracao`."
     )
 
@@ -62,13 +56,13 @@ async def configuracao(event):
     await event.respond(
         "⚙ **CONFIGURAÇÃO DO SCRIPT** ⚙\n\n"
         "1️⃣ **Baixe o script e coloque-o na sua pasta de trabalho.**\n"
-        "2️⃣ **Coloque o arquivo `credenciais.json` na mesma pasta do script.**\n"
+        "2️⃣ **Crie um arquivo `.env` na mesma pasta do script e preencha as credenciais corretamente.**\n"
         "3️⃣ **Verifique as configurações do Telegram dentro do código:**\n"
         "   - API_ID e API_HASH\n"
         "   - Seu número de telefone\n"
         "   - Nome do bot\n"
-        "4️⃣ **A planilha já está configurada, então você pode rodar o script!**\n\n"
-        "Para saber como rodar, digite `/execucao`."
+        "4️⃣ **Certifique-se de que o arquivo `credenciais.json` está na pasta correta.**\n\n"
+        "Para saber como rodar o script, digite `/execucao`."
     )
 
 @bot.on(events.NewMessage(pattern='/execucao'))
@@ -77,9 +71,7 @@ async def execucao(event):
     await event.respond(
         "▶ **EXECUTANDO O SCRIPT** ▶\n\n"
         "Agora você pode rodar o script com este comando no terminal:\n"
-        "```\n"
-        "python nome_do_script.py\n"
-        "```\n"
+        "```bash\npython ExtrairPuxadas.py```\n\n"
         "Se tudo estiver certo, o bot começará a processar os CPFs e os dados aparecerão na planilha.\n"
         "Caso encontre problemas, digite `/suporte` para ver as soluções mais comuns."
     )
@@ -102,11 +94,12 @@ async def suporte(event):
     await event.respond(
         "🛠 **SUPORTE E SOLUÇÃO DE PROBLEMAS** 🛠\n\n"
         "Caso enfrente algum problema, verifique:\n"
+        "✅ O arquivo `.env` está preenchido corretamente?\n"
         "✅ O arquivo `credenciais.json` está na pasta correta?\n"
-        "✅ O Python e os pacotes necessários estão instalados? (`pip install gspread oauth2client telethon`)\n"
-        "✅ Você rodou o comando `python nome_do_script.py` corretamente?\n"
+        "✅ O Python e os pacotes necessários estão instalados? (`pip install -r requirements.txt`)\n"
+        "✅ Você rodou o comando `python ExtrairPuxadas.py` corretamente?\n"
         "✅ Sua conexão com a internet está funcionando?\n\n"
-        "Se ainda precisar de ajuda, entre em contato!"
+        "Se ainda precisar de ajuda, entre em contato! 📩"
     )
 
 # Iniciar o bot
