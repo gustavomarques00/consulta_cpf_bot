@@ -3,10 +3,14 @@
 credenciais.json
 
 # Ignorar diretórios de dependências e caches do Python
-__pycache__/
+/backend/__pycache__/
 *.pyc
 *.pyo
 *.pyd
+
+
+/backend/.env
+/backend/venv/
 
 # Ignorar logs e arquivos temporários
 *.log

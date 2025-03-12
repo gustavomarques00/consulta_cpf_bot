@@ -2,28 +2,48 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Estilos base */
 @layer base {
   body {
-    font-family: 'Arial', sans-serif;
-    background-color: #f9fafb;
+    @apply font-sans bg-gray-50 text-gray-900;
+  }
+
+  /* Modo escuro */
+  html.dark body {
+    @apply bg-gray-900 text-white;
   }
 }
 
+/* Componentes reutilizáveis */
 @layer components {
   .sidebar {
-    width: 16rem; /* w-64 */
-    background-color: #4c51bf; /* bg-indigo-600 */
-    color: #ffffff; /* text-white */
+    @apply w-64 bg-indigo-600 text-white p-4;
+  }
+
+  .sidebar-link {
+    @apply block py-2 px-4 rounded hover:bg-indigo-500 transition duration-200;
+  }
+
+  .btn {
+    @apply py-2 px-4 rounded font-medium transition duration-200;
+  }
+
+  .btn-primary {
+    @apply bg-blue-600 text-white hover:bg-blue-700;
+  }
+
+  .btn-secondary {
+    @apply bg-gray-600 text-white hover:bg-gray-700;
   }
 }
 
-/* No CSS global ou no arquivo `globals.css` */
+/* Suporte a temas personalizados */
 html[data-theme="claro"] {
-    background-color: white;
-    color: black;
-  }
-  
-  html[data-theme="escuro"] {
-    background-color: black;
-    color: white;
-  }
+  background-color: white;
+  color: black;
+}
+
+html[data-theme="escuro"] {
+  background-color: black;
+  color: white;
+}

@@ -1,0 +1,35 @@
+{
+  "compilerOptions": {
+    "target": "ES2017", // Definindo a versão alvo do JavaScript
+    "lib": ["dom", "dom.iterable", "esnext"], // Bibliotecas adicionais para o projeto
+    "allowJs": true, // Permite arquivos JS no projeto
+    "skipLibCheck": true, // Ignora verificação das definições de tipo nas bibliotecas
+    "strict": true, // Habilita regras de tipo estritas no TypeScript
+    "noEmit": true, // Não gera arquivos de saída (usado apenas para verificação)
+    "esModuleInterop": true, // Permite interoperabilidade entre módulos ES e CommonJS
+    "module": "esnext", // Utiliza módulos ES de próxima geração
+    "moduleResolution": "bundler", // Resolves modules da mesma forma que um bundler faria
+    "resolveJsonModule": true, // Permite importar arquivos JSON como módulos
+    "isolatedModules": true, // Garante que cada arquivo seja tratado como módulo isolado
+    "baseUrl": ".", // Define a base URL para resolução de módulos
+    "jsx": "preserve", // Preserva JSX, útil para Next.js
+    "incremental": true, // Habilita compilação incremental para melhorar a performance
+    "plugins": [
+      {
+        "name": "next" // Plugins necessários para o Next.js
+      }
+    ],
+    "paths": {
+      "@/*": ["app/*"] // Alias para a pasta "app" que facilita a importação de módulos
+    }
+  },
+  "include": [
+    "next-env.d.ts", // Arquivo de definição de ambiente Next.js
+    "**/*.ts", // Inclui todos os arquivos .ts
+    "**/*.tsx", // Inclui todos os arquivos .tsx
+    ".next/types/**/*.ts" // Adiciona tipos gerados pela build do Next.js
+  ],
+  "exclude": [
+    "node_modules" // Exclui o diretório node_modules
+  ]
+}

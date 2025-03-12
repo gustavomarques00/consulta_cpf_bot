@@ -1,37 +1,42 @@
-import { Controller } from "react-hook-form";
+import { Controller, Control, FieldErrors } from "react-hook-form";
+import ErrorMessage from "./ErrorMessage";
 
-// Componente de input de checkbox com o react-hook-form
-export default function CheckboxInput({
-  label,
-  name,
-  control,
-  rules,
-  errors,
-}: {
+interface CheckboxInputProps {
   label: string;
   name: string;
-  control: any;
+  control: Control<any>;
   rules?: any;
-  errors: any;
-}) {
+  errors: FieldErrors<any>;
+}
+
+export default function CheckboxInput({ label, name, control, rules, errors }: CheckboxInputProps) {
+  const error = errors[name];
+
   return (
-    <div>
-      <label className="block text-sm font-medium text-gray-700">{label}</label>
+    <div className="w-full flex items-center space-x-2">
       <Controller
         name={name}
         control={control}
         rules={rules}
         render={({ field }) => (
           <input
-            type="checkbox"
             {...field}
-            checked={field.value} // Aqui controlamos o estado do checkbox usando `field.value`
-            onChange={(e) => field.onChange(e.target.checked)} // Passamos o valor correto de `checked`
-            className="w-full mt-2 p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            type="checkbox"
+            id={name}
+            checked={field.value}
+            onChange={(e) => field.onChange(e.target.checked)}
+            className="h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+            aria-checked={field.value}
+            aria-describedby={error ? `${name}-error` : undefined}
           />
         )}
       />
-      {errors[name] && <p className="text-red-500 text-sm">{errors[name]?.message}</p>}
+
+      <label htmlFor={name} className="text-sm font-medium text-gray-700 dark:text-gray-300">
+        {label}
+      </label>
+
+      <ErrorMessage error={error} />
     </div>
   );
 }

@@ -14,7 +14,8 @@ class Config:
     BOT_USERNAME = os.getenv("BOT_USERNAME")
 
     # Configurações do Google Sheets
-    CREDENTIALS_FILE = os.getenv("CREDENTIALS_FILE", "credenciais.json")
+    #CREDENTIALS_FILE = os.getenv("CREDENTIALS_FILE", "credenciais.json")
+    CREDENTIALS_FILE = os.getenv("CREDENTIALS_FILE", os.path.join(os.getcwd(), "backend", "credenciais.json"))
     SHEET_NAME = os.getenv("SHEET_NAME", "Operação JUVO")
     WORKSHEET_DATA = os.getenv("WORKSHEET_DATA", "Dados")
     WORKSHEET_CHECKER = os.getenv("WORKSHEET_CHECKER", "Checker")

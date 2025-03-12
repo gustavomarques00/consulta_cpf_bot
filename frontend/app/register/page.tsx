@@ -1,3 +1,5 @@
+'use client'
+
 import { useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import axios from "axios";
@@ -71,7 +73,6 @@ export default function Register() {
   };
 
   return (
-    <RootLayout>
       <div className="min-h-screen bg-gray-50 p-8 flex items-center justify-center">
         <div className="max-w-md w-full bg-white p-8 rounded-lg shadow-md">
           <h1 className="text-3xl font-bold mb-6 text-center">Registrar</h1>
@@ -151,6 +152,5 @@ export default function Register() {
           </div>
         </div>
       </div>
-    </RootLayout>
   );
 }
