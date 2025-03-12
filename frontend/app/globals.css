@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    font-family: 'Arial', sans-serif;
+    background-color: #f9fafb;
+  }
+}
+
+@layer components {
+  .sidebar {
+    width: 16rem; /* w-64 */
+    background-color: #4c51bf; /* bg-indigo-600 */
+    color: #ffffff; /* text-white */
+  }
+}
+
+/* No CSS global ou no arquivo `globals.css` */
+html[data-theme="claro"] {
+    background-color: white;
+    color: black;
+  }
+  
+  html[data-theme="escuro"] {
+    background-color: black;
+    color: white;
+  }
