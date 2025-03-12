@@ -109,7 +109,6 @@ export default function Settings() {
               },
             }}
             errors={errors}
-            watch={watch}
           />
 
           {/* Campo de Tema */}
