@@ -10,6 +10,7 @@ export default function ErrorMessage({ error }: ErrorMessageProps) {
   return (
     <p className="text-red-500 text-sm mt-1" aria-live="assertive">
       {error.message}
+
     </p>
   );
 }

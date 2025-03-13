@@ -1,3 +1,5 @@
+'use client';
+
 import { Controller, Control, FieldErrors } from "react-hook-form";
 import ErrorMessage from "./ErrorMessage";
 
@@ -36,8 +38,9 @@ export default function EmailInput({ label, name, control, rules, errors }: Emai
           />
         )}
       />
-
-      <ErrorMessage error={error} />
+      
+      {/* Exibe erro apenas se existir */}
+      {error && <ErrorMessage error={error} />}
     </div>
   );
 }

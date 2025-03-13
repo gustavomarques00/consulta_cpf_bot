@@ -9,19 +9,23 @@
   }
 
   /* Modo escuro */
-  html.dark body {
+  html[data-theme="dark"] body {
     @apply bg-gray-900 text-white;
+  }
+
+  html[data-theme="light"] body {
+    @apply bg-white text-gray-900;
   }
 }
 
 /* Componentes reutilizáveis */
 @layer components {
   .sidebar {
-    @apply w-64 bg-indigo-600 text-white p-4;
+    @apply w-64 bg-blue-600 text-white p-4 flex flex-col justify-between;
   }
 
   .sidebar-link {
-    @apply block py-2 px-4 rounded hover:bg-indigo-500 transition duration-200;
+    @apply block py-2 px-4 rounded hover:bg-blue-500 transition duration-200;
   }
 
   .btn {
@@ -35,15 +39,66 @@
   .btn-secondary {
     @apply bg-gray-600 text-white hover:bg-gray-700;
   }
+
+  /* Estilo para perfil e configurações na sidebar */
+  .sidebar-footer {
+    @apply mt-auto space-y-4;
+  }
+
+  /* Estilos do Header */
+  .header {
+    @apply bg-white shadow-md p-4 mb-6 dark:bg-gray-800 dark:text-white flex justify-between items-center;
+  }
+
+  .header .theme-toggle-btn {
+    @apply text-indigo-600 dark:text-indigo-400;
+  }
 }
 
 /* Suporte a temas personalizados */
-html[data-theme="claro"] {
-  background-color: white;
-  color: black;
+html[data-theme="light"] {
+  --bg-color: white;
+  --text-color: black;
 }
 
-html[data-theme="escuro"] {
-  background-color: black;
-  color: white;
+html[data-theme="dark"] {
+  --bg-color: black;
+  --text-color: white;
+}
+
+/* Personalização da paleta de cores para o tema JUVO */
+html[data-theme="light"] {
+  --primary-bg: #0059B3; /* Azul primário */
+  --secondary-bg: #2D3748; /* Azul escuro */
+  --text-primary: #1A202C; /* Preto escuro */
+}
+
+html[data-theme="dark"] {
+  --primary-bg: #1A202C; /* Azul primário */
+  --secondary-bg: #2D3748; /* Azul escuro */
+  --text-primary: #F7FAFC; /* Branco claro */
+}
+
+/* Aplicando as variáveis para as cores do tema */
+body {
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+}
+
+.sidebar {
+  background-color: var(--primary-bg);
+}
+
+.sidebar-link {
+  color: var(--text-primary);
+}
+
+/* Alterando a cor do botão principal */
+.btn-primary {
+  background-color: var(--primary-bg);
+  color: var(--text-primary);
+}
+
+.btn-primary:hover {
+  background-color: var(--secondary-bg);
 }
