@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
-import { FaHome, FaLock, FaRegHandshake, FaTachometerAlt, FaSearch, FaCreditCard, FaComments, FaUser, FaCog, FaChevronLeft, FaChevronRight  } from 'react-icons/fa'; // Ícones do React Icons
+import { FaHome, FaLock, FaRegHandshake, FaTachometerAlt, FaSearch, FaCreditCard, FaComments, FaUser, FaCog, FaChevronLeft, FaChevronRight } from 'react-icons/fa'; // Ícones do React Icons
 import SidebarLink from "./components/SidebarLink"; // Importando o componente SidebarLink
 import "./globals.css";
 import ThemeProvider from "./ThemeProvider";
@@ -35,11 +35,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <html lang="pt-BR">
-      <body className="antialiased bg-white dark:bg-gray-900 dark:text-white">
+      <body className="antialiased bg-white dark:bg-gray-900 dark:text-white min-h-screen">
         <ThemeProvider>
-          <div className="flex min-h-screen">
+          <div className="flex overflow-hidden min-h-screen">
             {/* Sidebar Dinâmica - Com ícones e texto chamativo */}
-            <aside className={`transition-all duration-300 ${sidebarOpen ? "w-64" : "w-20"} bg-blue-600 text-white p-4 flex flex-col justify-between h-screen`}>
+            <aside className={`transition-all duration-300 ${sidebarOpen ? 'w-64' : 'w-20'} bg-blue-600 text-white p-4 flex flex-col justify-between`}>
               <div>
                 {/* Botão de Alternância com ícones */}
                 <button
@@ -75,12 +75,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </aside>
 
             {/* Conteúdo Principal */}
-            <main className="flex-1 p-6 overflow-auto">
-              <header className="bg-white shadow-md p-4 mb-6 dark:bg-gray-800 dark:text-white flex justify-between items-center">
+            <main className="flex flex-col h-screen overflow-hidden w-full">
+              {/* Cabeçalho da Página */}
+              <header className="h-20 bg-white shadow-md p-8 dark:bg-gray-800 dark:text-white flex justify-between items-center">
                 <Link href="/" className="flex items-center">
-                  <img src="/logo.webp" alt="Logo JUVO" className="w-12 h-12 mr-2" />
-                  <h1 className="text-3xl font-semibold text-gray-900 dark:text-white">
-                    Sistema de Extração - JUVO <span className="text-2xl ml-2">🚀</span>
+                  <img src="/logo.webp" alt="Logo JUVO" className="w-20 h-20 mr-4 rounded-full" />
+                  <h1 className="text-4xl font-extrabold text-gray-900 dark:text-white flex items-center">
+                    Sistema de Extração - JUVO
+                    <span className="text-3xl ml-3 text-indigo-500">🚀</span>
                   </h1>
                 </Link>
 
@@ -95,7 +97,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </header>
 
               {/* Renderiza o conteúdo da página */}
-              <section>{children}</section>
+              <section className='flex-grow h-[calc(100vh-80px)] w-full overflow-auto'>
+                {children}
+              </section>
             </main>
           </div>
         </ThemeProvider>

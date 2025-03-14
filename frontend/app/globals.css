@@ -16,6 +16,11 @@
   html[data-theme="light"] body {
     @apply bg-white text-gray-900;
   }
+
+  /* Estilo para a área de conteúdo */
+  section {
+    @apply max-h-screen overflow-auto;
+  }
 }
 
 /* Componentes reutilizáveis */

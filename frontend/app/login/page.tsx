@@ -22,7 +22,6 @@ export default function Login() {
     control,
     handleSubmit,
     formState: { errors },
-    watch,
   } = useForm<LoginFormData>();
 
   const onSubmit = async (data: LoginFormData) => {
@@ -45,8 +44,8 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8 flex items-center justify-center">
-      <div className="max-w-md w-full bg-white dark:bg-gray-800 p-8 rounded-lg shadow-md">
+    <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900 ">
+      <div className="w-full max-w-md bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg">
         <h1 className="text-3xl font-bold mb-6 text-center text-gray-900 dark:text-white">
           Login
         </h1>

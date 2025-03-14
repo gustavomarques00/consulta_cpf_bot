@@ -23,9 +23,6 @@ export default function ThemeProvider({ children }: { children: React.ReactNode 
 
   return (
     <div>
-      <button onClick={toggleTheme} className="absolute top-4 right-4 text-indigo-600 dark:text-indigo-400">
-        {darkMode ? "Modo Claro" : "Modo Escuro"}
-      </button>
       {children}
     </div>
   );
