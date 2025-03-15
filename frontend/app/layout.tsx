@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
-import { FaHome, FaLock, FaRegHandshake, FaTachometerAlt, FaSearch, FaCreditCard, FaComments, FaUser, FaCog, FaChevronLeft, FaChevronRight } from 'react-icons/fa'; // Ícones do React Icons
+import { FaHome, FaLock, FaRegHandshake, FaTachometerAlt, FaSearch, FaCreditCard, FaExchangeAlt, FaComments, FaUser, FaCog, FaChevronLeft, FaChevronRight } from 'react-icons/fa'; // Ícones do React Icons
 import SidebarLink from "./components/SidebarLink"; // Importando o componente SidebarLink
 import "./globals.css";
 import ThemeProvider from "./ThemeProvider";
@@ -61,6 +61,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     <SidebarLink to="/register" icon={FaRegHandshake} label="Registrar" isSidebarOpen={sidebarOpen} />
                     <SidebarLink to="/dashboard" icon={FaTachometerAlt} label="Dashboard" isSidebarOpen={sidebarOpen} />
                     <SidebarLink to="/search" icon={FaSearch} label="Buscar" isSidebarOpen={sidebarOpen} />
+                    <SidebarLink to="/operation" icon={FaExchangeAlt} label="Operação" isSidebarOpen={sidebarOpen} />
                     <SidebarLink to="/plans" icon={FaCreditCard} label="Planos" isSidebarOpen={sidebarOpen} />
                     <SidebarLink to="/support" icon={FaComments} label="Suporte" isSidebarOpen={sidebarOpen} />
                   </ul>
@@ -75,8 +76,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </aside>
 
             {/* Conteúdo Principal */}
-            <main className="flex flex-col h-screen overflow-hidden w-full">
-              {/* Cabeçalho da Página */}
+            <main className="flex flex-col h-screen overflow-hidden w-full"> 
               <header className="h-20 bg-white shadow-md p-8 dark:bg-gray-800 dark:text-white flex justify-between items-center">
                 <Link href="/" className="flex items-center">
                   <img src="/logo.webp" alt="Logo JUVO" className="w-20 h-20 mr-4 rounded-full" />
