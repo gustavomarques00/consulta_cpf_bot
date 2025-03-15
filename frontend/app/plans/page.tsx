@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import axios from "axios";
-import Link from "next/link";
+import PlanCard from "../components/PlanCard";
 
 interface Plan {
   id: string;
@@ -14,6 +14,7 @@ interface Plan {
 export default function PlansPage() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [userPlan, setUserPlan] = useState<string | null>(null);
+  const [renewalDate, setRenewalDate] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,6 +26,7 @@ export default function PlansPage() {
 
         const userResponse = await axios.get("/api/user-plan");
         setUserPlan(userResponse.data.name);
+        setRenewalDate(userResponse.data.renewalDate);
       } catch (err) {
         setError("Erro ao carregar os planos.");
       } finally {
@@ -39,42 +41,41 @@ export default function PlansPage() {
   if (error) return <p className="text-center text-red-500">{error}</p>;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8 flex items-center justify-center">
-      <div className="max-w-4xl w-full bg-white dark:bg-gray-800 p-8 rounded-lg shadow-md">
-        <h1 className="text-3xl font-bold mb-6 text-center text-gray-900 dark:text-white">
-          Escolha o Plano Ideal para Você 🚀
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 p-8 flex flex-col items-center">
+      <div className="max-w-5xl w-full bg-white dark:bg-gray-800 p-10 rounded-xl shadow-2xl text-center">
+        
+        <h1 className="text-4xl font-extrabold text-gray-900 dark:text-white mb-6">
+          Escolha o Melhor Plano para Você 🚀
         </h1>
 
+        <p className="text-lg text-gray-700 dark:text-gray-300 mb-8">
+          Selecione um dos nossos planos e aproveite os benefícios exclusivos.
+        </p>
+
+        {/* Exibir Plano Atual */}
+        {userPlan && (
+          <div className="mb-10">
+            <PlanCard
+              name={userPlan}
+              status="ativo"
+              renewalDate={renewalDate || "Não informado"}
+              features={["Suporte 24/7", "Acesso completo", "Atualizações gratuitas"]}
+            />
+          </div>
+        )}
+
+        {/* Exibir Planos Disponíveis */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {plans.map((plan) => (
-            <div
-              key={plan.id}
-              className={`p-6 border rounded-lg ${
-                userPlan === plan.name ? "border-indigo-500 bg-indigo-100 dark:bg-indigo-900" : "border-gray-300"
-              }`}
-            >
-              <h2 className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">
-                {plan.name}
-              </h2>
-              <p className="text-lg font-bold text-gray-700 dark:text-gray-300">{plan.price}</p>
-
-              <ul className="list-disc list-inside text-gray-700 dark:text-gray-300 mt-4">
-                {plan.features.map((feature, index) => (
-                  <li key={index} className="mb-2">{feature}</li>
-                ))}
-              </ul>
-
-              {userPlan === plan.name ? (
-                <p className="mt-4 text-center text-green-600 font-semibold">Plano Atual</p>
-              ) : (
-                <Link
-                  href={`/checkout?plan=${plan.id}`}
-                  className="mt-4 block bg-indigo-600 text-white text-center py-2 rounded-md hover:bg-indigo-700 transition duration-200"
-                >
-                  Escolher Plano
-                </Link>
-              )}
-            </div>
+          {plans
+            .filter(plan => plan.name !== userPlan) // Excluir plano atual da lista de escolha
+            .map((plan) => (
+              <PlanCard
+                key={plan.id}
+                name={plan.name}
+                status="disponível"
+                features={plan.features}
+                upgradeUrl={`/checkout?plan=${plan.id}`}
+              />
           ))}
         </div>
       </div>

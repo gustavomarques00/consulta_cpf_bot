@@ -1,15 +1,17 @@
 "use client";
 
 import { Controller, Control, FieldErrors } from "react-hook-form";
+import { IconType } from "react-icons"; // Suporte para ícones dinâmicos
 
 interface InputFieldProps {
   label: string;
   name: string;
-  type?: "text" | "email" | "password" | "number" | "textarea";
+  type?: "text" | "email" | "password" | "number" | "textarea" | "tel";
   control: Control<any>;
   rules?: any;
   placeholder?: string;
   errors: FieldErrors<any>;
+  Icon?: IconType; // Ícone opcional
 }
 
 export default function InputField({
@@ -20,6 +22,7 @@ export default function InputField({
   rules,
   placeholder,
   errors,
+  Icon,
 }: InputFieldProps) {
   const isError = !!errors[name]; // Verifica se há erro
 
@@ -29,44 +32,49 @@ export default function InputField({
         {label}
       </label>
 
-      <Controller
-        name={name}
-        control={control}
-        rules={rules}
-        render={({ field }) => {
-          // Garantir que o valor seja definido. Se `field.value` for `undefined`, use uma string vazia
-          const fieldValue = field.value ?? ""; // Usando o operador nullish coalescing (??) para garantir que o valor seja controlado
+      <div className="relative">
+        {/* Ícone dentro do input */}
+        {Icon && <Icon className="absolute left-3 top-3 text-gray-500" size={20} />}
 
-          return type === "textarea" ? (
-            <textarea
-              {...field}
-              id={name}
-              value={fieldValue} // Garantir que o valor seja controlado
-              placeholder={placeholder}
-              className={`w-full mt-2 p-3 border rounded-md focus:outline-none focus:ring-2 ${
-                isError ? "border-red-500 focus:ring-red-500" : "border-gray-300 focus:ring-indigo-500"
-              } text-black`} // Aqui, a classe `text-black` garante o texto preto
-              rows={4}
-              aria-invalid={isError ? "true" : "false"}
-              aria-describedby={isError ? `${name}-error` : undefined}
-            />
-          ) : (
-            <input
-              {...field}
-              id={name}
-              type={type}
-              value={fieldValue} // Garantir que o valor seja controlado
-              placeholder={placeholder}
-              className={`w-full mt-2 p-3 border rounded-md focus:outline-none focus:ring-2 ${
-                isError ? "border-red-500 focus:ring-red-500" : "border-gray-300 focus:ring-indigo-500"
-              } text-black`} // Aqui, a classe `text-black` garante o texto preto
-              aria-invalid={isError ? "true" : "false"}
-              aria-describedby={isError ? `${name}-error` : undefined}
-            />
-          );
-        }}
-      />
+        <Controller
+          name={name}
+          control={control}
+          rules={rules}
+          render={({ field }) => {
+            const fieldValue = field.value ?? ""; // Garante que o valor seja controlado
 
+            return type === "textarea" ? (
+              <textarea
+                {...field}
+                id={name}
+                value={fieldValue}
+                placeholder={placeholder}
+                className={`w-full pl-10 pr-3 py-3 border rounded-md focus:outline-none focus:ring-2 ${
+                  isError ? "border-red-500 focus:ring-red-500" : "border-gray-300 focus:ring-indigo-500"
+                }`}
+                rows={4}
+                aria-invalid={isError ? "true" : "false"}
+                aria-describedby={isError ? `${name}-error` : undefined}
+              />
+            ) : (
+              <input
+                {...field}
+                id={name}
+                type={type}
+                value={fieldValue}
+                placeholder={placeholder}
+                className={`w-full pl-10 pr-3 py-3 border rounded-md focus:outline-none focus:ring-2 ${
+                  isError ? "border-red-500 focus:ring-red-500" : "border-gray-300 focus:ring-indigo-500"
+                }`}
+                aria-invalid={isError ? "true" : "false"}
+                aria-describedby={isError ? `${name}-error` : undefined}
+              />
+            );
+          }}
+        />
+      </div>
+
+      {/* Exibe erro apenas se existir */}
       {isError && (
         <p id={`${name}-error`} className="text-red-500 text-sm mt-1">
           {errors[name]?.message as string}
