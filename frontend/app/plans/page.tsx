@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import axios from "axios";
 import PlanCard from "../components/PlanCard";
 
 interface Plan {
@@ -21,14 +20,20 @@ export default function PlansPage() {
   useEffect(() => {
     const fetchPlans = async () => {
       try {
-        const plansResponse = await axios.get("/api/plans");
-        setPlans(plansResponse.data);
+        // **Buscando os planos disponíveis do backend**
+        const plansResponse = await fetch("/api/plans");
+        if (!plansResponse.ok) throw new Error("Erro ao carregar os planos.");
+        const plansData = await plansResponse.json();
+        setPlans(plansData);
 
-        const userResponse = await axios.get("/api/user-plan");
-        setUserPlan(userResponse.data.name);
-        setRenewalDate(userResponse.data.renewalDate);
+        // **Buscando o plano do usuário**
+        const userResponse = await fetch("/api/user-plan");
+        if (!userResponse.ok) throw new Error("Erro ao carregar seu plano.");
+        const userData = await userResponse.json();
+        setUserPlan(userData.name);
+        setRenewalDate(userData.renewalDate);
       } catch (err) {
-        setError("Erro ao carregar os planos.");
+        setError(err.message || "Erro ao carregar os dados.");
       } finally {
         setLoading(false);
       }
@@ -37,8 +42,28 @@ export default function PlansPage() {
     fetchPlans();
   }, []);
 
-  if (loading) return <p className="text-center text-lg">Carregando planos...</p>;
-  if (error) return <p className="text-center text-red-500">{error}</p>;
+  // **Exibição do Spinner enquanto carrega**
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 flex items-center justify-center p-8">
+        <div className="flex items-center justify-center space-x-2">
+          <div className="w-8 h-8 border-4 border-t-4 border-gray-900 border-t-transparent rounded-full animate-spin"></div>
+          <span className="text-lg text-gray-300">Carregando planos...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // **Exibição de erro**
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 flex items-center justify-center p-8">
+        <div className="max-w-lg w-full bg-red-600 text-white p-6 rounded-lg shadow-lg">
+          <p className="text-center text-xl">{error}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 p-8 flex flex-col items-center">
@@ -52,9 +77,12 @@ export default function PlansPage() {
           Selecione um dos nossos planos e aproveite os benefícios exclusivos.
         </p>
 
-        {/* Exibir Plano Atual */}
+        {/* **Exibir Plano Atual** */}
         {userPlan && (
-          <div className="mb-10">
+          <div className="mb-10 bg-green-100 p-6 rounded-lg shadow-lg border-l-4 border-green-500">
+            <h2 className="text-2xl font-semibold text-gray-800 dark:text-white">
+              🎟️ Seu Plano Atual
+            </h2>
             <PlanCard
               name={userPlan}
               status="ativo"
@@ -64,19 +92,20 @@ export default function PlansPage() {
           </div>
         )}
 
-        {/* Exibir Planos Disponíveis */}
+        {/* **Exibir Planos Disponíveis** */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {plans
             .filter(plan => plan.name !== userPlan) // Excluir plano atual da lista de escolha
             .map((plan) => (
-              <PlanCard
-                key={plan.id}
-                name={plan.name}
-                status="disponível"
-                features={plan.features}
-                upgradeUrl={`/checkout?plan=${plan.id}`}
-              />
-          ))}
+              <div key={plan.id} className="transition-transform transform hover:scale-105">
+                <PlanCard
+                  name={plan.name}
+                  status="disponível"
+                  features={plan.features}
+                  upgradeUrl={`/checkout?plan=${plan.id}`}
+                />
+              </div>
+            ))}
         </div>
       </div>
     </div>
