@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
@@ -19,6 +19,7 @@ export default function Settings() {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
   const [successMessage, setSuccessMessage] = useState<string>("");
+  const [userSettings, setUserSettings] = useState<SettingsFormData | null>(null);
 
   const {
     control,
@@ -28,13 +29,27 @@ export default function Settings() {
     setValue,
   } = useForm<SettingsFormData>();
 
-  // Carregar preferências salvas do usuário
+  // Carregar configurações do usuário ao iniciar a página
   useEffect(() => {
-    const savedTheme = localStorage.getItem("theme") as "claro" | "escuro";
-    if (savedTheme) {
-      document.documentElement.classList.toggle("dark", savedTheme === "escuro");
-      setValue("tema", savedTheme);
-    }
+    const fetchUserSettings = async () => {
+      try {
+        const response = await axios.get("/api/settings"); // Requisição para pegar as configurações do backend
+        const data = response.data;
+
+        // Preencher os dados no formulário com os valores do backend
+        setUserSettings(data);
+        setValue("email", data.email);
+        setValue("tema", data.tema);
+        setValue("notificacoes", data.notificacoes);
+
+        // Atualizar o tema no frontend
+        document.documentElement.classList.toggle("dark", data.tema === "escuro");
+      } catch (err) {
+        setError("Erro ao carregar as configurações do usuário.");
+      }
+    };
+
+    fetchUserSettings();
   }, [setValue]);
 
   // Atualizar configurações do usuário
@@ -44,8 +59,7 @@ export default function Settings() {
     setSuccessMessage("");
 
     try {
-      // Atualizar tema no localStorage
-      localStorage.setItem("theme", data.tema);
+      // Atualizar tema no frontend
       document.documentElement.classList.toggle("dark", data.tema === "escuro");
 
       // Simular requisição para salvar configurações no backend
@@ -58,6 +72,17 @@ export default function Settings() {
       setLoading(false);
     }
   };
+
+  if (!userSettings) {
+    return (<div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-8">
+      {/* Indicador de carregamento */}
+      <div className="flex items-center justify-center space-x-2">
+        <div className="w-8 h-8 border-4 border-t-4 border-gray-900 border-t-transparent rounded-full animate-spin"></div>
+        <span className="text-lg text-gray-900 dark:text-white">Carregando...</span>
+      </div>
+    </div>
+    ); // Exibir um estado de carregamento enquanto os dados não são carregados
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8 flex items-center justify-center">

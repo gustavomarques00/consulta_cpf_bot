@@ -6,6 +6,7 @@ import axios from "axios";
 import InputField from "../components/InputField";
 import ConfirmPasswordInput from "../components/ConfirmPasswordInput";
 import { FiUser, FiMail, FiPhone, FiBriefcase, FiLock } from "react-icons/fi";
+import PopUp from "../components/PopUp"; // Importe o PopUp
 
 interface RegisterFormData {
   name: string;
@@ -21,6 +22,7 @@ export default function Register() {
   const [error, setError] = useState<string>("");
   const [success, setSuccess] = useState<string>("");
   const [isClient, setIsClient] = useState(false);
+  const [showPopUp, setShowPopUp] = useState<boolean>(false); // Estado para controlar a exibição do PopUp
 
   const { control, handleSubmit, formState: { errors }, watch } = useForm<RegisterFormData>();
 
@@ -43,8 +45,10 @@ export default function Register() {
       });
 
       setSuccess("Cadastro realizado com sucesso! Você pode fazer login agora.");
+      setShowPopUp(true); // Exibe o PopUp de sucesso
     } catch (err: any) {
       setError("Erro ao tentar fazer o registro. Tente novamente.");
+      setShowPopUp(true); // Exibe o PopUp de erro
     } finally {
       setLoading(false);
     }
@@ -162,9 +166,10 @@ export default function Register() {
           </button>
         </form>
 
-        {/* Exibir mensagens */}
-        {error && <p className="text-red-500 text-center mt-4">{error}</p>}
-        {success && <p className="text-green-500 text-center mt-4">{success}</p>}
+        {/* Exibir mensagens de erro e sucesso com PopUp */}
+        {showPopUp && (error || success) && (
+          <PopUp message={error || success} onClose={() => setShowPopUp(false)} />
+        )}
       </div>
     </div>
   );

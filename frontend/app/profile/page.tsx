@@ -19,8 +19,6 @@ export default function ProfilePage() {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-
-  
   useEffect(() => {
     const fetchUserProfile = async () => {
       try {
@@ -35,7 +33,6 @@ export default function ProfilePage() {
 
     fetchUserProfile();
   }, []);
-  
 
   const handleLogout = () => {
     // Simulação de logout (remover token e redirecionar para login)
@@ -43,8 +40,28 @@ export default function ProfilePage() {
     router.push("/login");
   };
 
-  //if (loading) return <p className="text-center text-lg">Carregando perfil...</p>;
-  if (error) return <p className="text-center text-red-500">{error}</p>;
+  // Exibição do spinner de carregamento
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 flex flex-col items-center justify-center p-8">
+        <div className="flex items-center justify-center space-x-2">
+          <div className="w-8 h-8 border-4 border-t-4 border-gray-900 border-t-transparent rounded-full animate-spin"></div>
+          <span className="text-lg text-white">Carregando perfil...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Exibição da mensagem de erro
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 flex flex-col items-center justify-center p-8">
+        <div className="max-w-lg w-full bg-red-600 text-white p-6 rounded-lg shadow-lg">
+          <p className="text-center text-xl">{error}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 flex flex-col items-center p-8">
