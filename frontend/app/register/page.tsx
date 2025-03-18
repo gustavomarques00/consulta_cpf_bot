@@ -1,20 +1,22 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import axios from "axios";
-import InputField from "../components/InputField";
-import ConfirmPasswordInput from "../components/ConfirmPasswordInput";
-import { FiUser, FiMail, FiPhone, FiBriefcase, FiLock } from "react-icons/fi";
-import PopUp from "../components/PopUp"; // Importe o PopUp
+import SelectField from "../components/SelectField"; // Componente de Seletor
+import InputField from "../components/InputField"; // Componente de Input
+import ConfirmPasswordInput from "../components/ConfirmPasswordInput"; // Componente de Confirmação de Senha
+import PopUp from "../components/PopUp"; // PopUp para mensagens de erro ou sucesso
+import { FiUser, FiMail, FiPhone, FiLock, FiKey } from "react-icons/fi"; // Ícones
 
 interface RegisterFormData {
   name: string;
   email: string;
   phone: string;
-  sector: string;
+  tipoUsuario: string;
   password: string;
   confirmPassword: string;
+  codigoChefe?: string;
 }
 
 export default function Register() {
@@ -22,9 +24,10 @@ export default function Register() {
   const [error, setError] = useState<string>("");
   const [success, setSuccess] = useState<string>("");
   const [isClient, setIsClient] = useState(false);
-  const [showPopUp, setShowPopUp] = useState<boolean>(false); // Estado para controlar a exibição do PopUp
+  const [showPopUp, setShowPopUp] = useState<boolean>(false);
+  const [tipoUsuario, setTipoUsuario] = useState<string>("");
 
-  const { control, handleSubmit, formState: { errors }, watch } = useForm<RegisterFormData>();
+  const { control, handleSubmit, formState: { errors }, watch, setValue } = useForm<RegisterFormData>();
 
   useEffect(() => {
     setIsClient(true);
@@ -40,8 +43,9 @@ export default function Register() {
         name: data.name,
         email: data.email,
         phone: data.phone,
-        sector: data.sector,
+        tipoUsuario: data.tipoUsuario,
         password: data.password,
+        codigoChefe: data.codigoChefe,
       });
 
       setSuccess("Cadastro realizado com sucesso! Você pode fazer login agora.");
@@ -54,6 +58,15 @@ export default function Register() {
     }
   };
 
+  const handleTipoUsuarioChange = (value: string) => {
+    setTipoUsuario(value);
+    if (value !== "Operador") {
+      // Limpar campo de código se não for Operador
+      setValue("codigoChefe", "");
+    }
+  };
+
+  
   if (!isClient) {
     return null;
   }
@@ -63,9 +76,7 @@ export default function Register() {
       <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-2xl transition-all duration-300 hover:shadow-xl">
         <h1 className="text-4xl font-semibold mb-6 text-center text-gray-900">Criar Conta</h1>
 
-        {/* Formulário */}
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-          
           {/* Nome */}
           <div className="relative">
             <InputField
@@ -113,17 +124,22 @@ export default function Register() {
             />
           </div>
 
-          {/* Setor de Interesse */}
+          {/* Tipo de Usuário */}
           <div className="relative">
-            <InputField
-              label="Setor de Interesse"
-              name="sector"
+            <SelectField
+              label="Tipo de Usuário"
+              name="tipoUsuario"
               control={control}
-              Icon={FiBriefcase}
+              rules={{ required: "O tipo de usuário é obrigatório" }}  // Regras de validação
               errors={errors}
-              placeholder="Ex: Marketing, TI, Vendas..."
-              rules={{ required: "Informe seu setor de interesse" }}
+              options={["Operador", "Chefe de Equipe", "Independente"]}  // Opções para o seletor
+              placeholder="Selecione um tipo de usuário"
             />
+            <p className="text-sm text-gray-500 mt-2">
+              <strong>Operador:</strong> Precisa inserir o código do chefe de equipe.<br />
+              <strong>Chefe de Equipe:</strong> Código gerado automaticamente.<br />
+              <strong>Independente:</strong> Não há necessidade de código.
+            </p>
           </div>
 
           {/* Senha */}
@@ -151,22 +167,36 @@ export default function Register() {
               watch={watch}
               rules={{
                 required: "A confirmação de senha é obrigatória",
-                validate: (value: string) => value === watch("password") || "As senhas não coincidem",
+                validate: (value: string) => value === watch("password") || "As senhas não coincidem"
               }}
             />
           </div>
 
+          {/* Código de Equipe */}
+          <div className="relative">
+            <InputField
+              label="Código do Chefe de Equipe"
+              name="codigoChefe"
+              control={control}
+              errors={errors}
+              type="text"
+              Icon={FiKey}
+              placeholder="Digite o código do chefe de equipe"
+              rules={{ required: "O código do chefe é obrigatório" }}
+            />
+          </div>
+
           {/* Botão */}
-          <button 
-            type="submit" 
-            disabled={loading} 
+          <button
+            type="submit"
+            disabled={loading}
             className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white py-3 rounded-md hover:from-indigo-600 hover:to-purple-700 transition transform active:scale-95 shadow-md"
           >
             {loading ? "Processando..." : "Registrar"}
           </button>
+
         </form>
 
-        {/* Exibir mensagens de erro e sucesso com PopUp */}
         {showPopUp && (error || success) && (
           <PopUp message={error || success} onClose={() => setShowPopUp(false)} />
         )}

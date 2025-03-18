@@ -11,24 +11,38 @@ interface PlanCardProps {
   upgradeUrl?: string;
 }
 
-export default function PlanCard({ name, status, renewalDate, features, upgradeUrl }: PlanCardProps) {
+export default function PlanCard({
+  name,
+  status,
+  renewalDate,
+  features,
+  upgradeUrl,
+}: PlanCardProps) {
   const statusInfo = {
-    ativo: { color: "text-green-600", icon: <FiCheckCircle size={24} /> },
-    expirado: { color: "text-red-600", icon: <FiXCircle size={24} /> },
-    pendente: { color: "text-yellow-600", icon: <FiClock size={24} /> },
-    disponível: { color: "text-indigo-600", icon: <FiCheckCircle size={24} /> },
+    ativo: { color: "text-green-600", icon: <FiCheckCircle size={28} /> },
+    expirado: { color: "text-red-600", icon: <FiXCircle size={28} /> },
+    pendente: { color: "text-yellow-600", icon: <FiClock size={28} /> },
+    disponível: { color: "text-indigo-600", icon: <FiCheckCircle size={28} /> },
   };
 
   return (
-    <div className="w-full bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg text-gray-900 dark:text-white transition-all duration-300 hover:shadow-xl">
-      <h2 className="text-2xl font-semibold text-center mb-4">{status === "disponível" ? "Plano Disponível" : "🎟️ Seu Plano Atual"}</h2>
+    <div className="w-full bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg text-gray-900 dark:text-white transition-all duration-300 hover:shadow-xl hover:scale-105 transform">
+      <h2 className="text-2xl font-semibold text-center mb-4">
+        {status === "disponível" ? "Plano Disponível" : "🎟️ Seu Plano Atual"}
+      </h2>
 
       {/* Status do Plano */}
-      <div className={`p-4 rounded-md flex items-center gap-3 ${statusInfo[status].color} bg-opacity-20`}>
-        {statusInfo[status].icon}
+      <div
+        className={`p-4 rounded-md flex items-center gap-3 ${statusInfo[status].color} bg-opacity-20`}
+      >
+        <div className="p-2 rounded-full bg-opacity-10">{statusInfo[status].icon}</div>
         <div>
           <h3 className="text-xl font-semibold capitalize">{name}</h3>
-          {renewalDate && <p className="text-sm">Renovação: <strong>{renewalDate}</strong></p>}
+          {renewalDate && (
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Renovação: <strong>{renewalDate}</strong>
+            </p>
+          )}
         </div>
       </div>
 

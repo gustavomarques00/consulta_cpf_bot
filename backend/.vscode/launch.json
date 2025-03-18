@@ -1,0 +1,24 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "Flask",
+        "type": "debugpy",
+        "request": "launch",
+        "program": "${workspaceFolder}/backend/app.py",  // Caminho para o arquivo Flask
+        "python": "${workspaceFolder}\\.venv\\Scripts\\python.exe",  // Caminho para o Python no ambiente virtual
+        "env": {
+          "FLASK_APP": "app.py",  // Nome do seu arquivo Flask
+          "FLASK_ENV": "development"
+        },
+        "envFile": "${workspaceFolder}/.env",  // Arquivo .env contendo suas variáveis de ambiente
+        "args": [
+          "run",
+          "--no-debugger", 
+          "--host=0.0.0.0"
+        ],
+        "jinja": true
+      }
+    ]
+  }
+  

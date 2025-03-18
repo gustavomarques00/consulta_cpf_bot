@@ -10,6 +10,7 @@ interface InputFieldProps {
   control: Control<any>;
   rules?: any;
   placeholder?: string;
+  disabled?: boolean;
   errors: FieldErrors<any>;
   Icon?: IconType; // Ícone opcional
 }
@@ -20,6 +21,7 @@ export default function InputField({
   type = "text",
   control,
   rules,
+  disabled,
   placeholder,
   errors,
   Icon,
@@ -48,6 +50,7 @@ export default function InputField({
                 {...field}
                 id={name}
                 value={fieldValue}
+                disabled={disabled}
                 placeholder={placeholder}
                 className={`w-full pl-10 pr-3 py-3 border rounded-md focus:outline-none focus:ring-2 ${
                   isError ? "border-red-500 focus:ring-red-500" : "border-gray-300 focus:ring-indigo-500"
@@ -60,6 +63,7 @@ export default function InputField({
               <input
                 {...field}
                 id={name}
+                disabled={disabled} 
                 type={type}
                 value={fieldValue}
                 placeholder={placeholder}

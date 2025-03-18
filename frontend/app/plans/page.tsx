@@ -21,19 +21,19 @@ export default function PlansPage() {
     const fetchPlans = async () => {
       try {
         // **Buscando os planos disponíveis do backend**
-        const plansResponse = await fetch("/api/plans");
+        const plansResponse = await fetch("http://127.0.0.1:5000/api/plans");
         if (!plansResponse.ok) throw new Error("Erro ao carregar os planos.");
         const plansData = await plansResponse.json();
         setPlans(plansData);
 
         // **Buscando o plano do usuário**
-        const userResponse = await fetch("/api/user-plan");
+        const userResponse = await fetch("http://127.0.0.1:5000/api/user-plans");
         if (!userResponse.ok) throw new Error("Erro ao carregar seu plano.");
         const userData = await userResponse.json();
         setUserPlan(userData.name);
         setRenewalDate(userData.renewalDate);
       } catch (err) {
-        setError(err.message || "Erro ao carregar os dados.");
+        setError((err as Error).message || "Erro ao carregar os dados.");
       } finally {
         setLoading(false);
       }
@@ -79,8 +79,8 @@ export default function PlansPage() {
 
         {/* **Exibir Plano Atual** */}
         {userPlan && (
-          <div className="mb-10 bg-green-100 p-6 rounded-lg shadow-lg border-l-4 border-green-500">
-            <h2 className="text-2xl font-semibold text-gray-800 dark:text-white">
+          <div className="mb-10 bg-blue-600 p-6 rounded-lg shadow-lg border-l-4 border-green-500 hover:shadow-2xl transform hover:scale-105 transition-all duration-300">
+            <h2 className="text-2xl font-semibold text-center text-white mb-4">
               🎟️ Seu Plano Atual
             </h2>
             <PlanCard
@@ -95,9 +95,12 @@ export default function PlansPage() {
         {/* **Exibir Planos Disponíveis** */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {plans
-            .filter(plan => plan.name !== userPlan) // Excluir plano atual da lista de escolha
+            .filter((plan) => plan.name !== userPlan) // Excluir plano atual da lista de escolha
             .map((plan) => (
-              <div key={plan.id} className="transition-transform transform hover:scale-105">
+              <div
+                key={plan.id}
+                className="transition-transform transform hover:scale-105"
+              >
                 <PlanCard
                   name={plan.name}
                   status="disponível"
