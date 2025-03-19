@@ -83,49 +83,56 @@ def consultar_api(cpf):
 def processar_cpf(cpf, sheet_data, sheet_checker):
     """Processa o CPF e atualiza os dados na planilha."""
     dados_api = consultar_api(cpf)
+    contagem = 0  # Contador de tentativas de consulta à API
+    print(f"ℹ️ Processando CPF {cpf}...")
 
-    if not dados_api or dados_api.get("resultado", {}).get("status") != "success":
-        print(f"⚠️ Falha ao obter dados para {cpf}. Reagendando...")
+    while not dados_api and contagem < Config.MAX_RETRIES:
+        print(f"⚠️ Tentativa {contagem + 1} de consulta à API para {cpf}...")
+        dados_api = consultar_api(cpf)
+        contagem += 1
+        time.sleep(Config.RETRY_DELAY)  # Aguarda um tempo antes de tentar novamente
+    
+    # Se após as tentativas, não houver dados, reagenda o CPF
+    if not dados_api:
+        print(f"⚠️ Erro contínuo ao obter dados para {cpf}. Verificando a causa...")
         reagendar_cpf_checker(sheet_checker, cpf)
         return
 
-    # Extrair informações da resposta JSON
-    pessoa = dados_api["resultado"]["data"]["pessoa"]
+    # Agora, acessamos a estrutura correta, com base no retorno da API
+    pessoa = dados_api  # O retorno da API já tem os dados no nível raiz
+
+    # Extrair as informações com base na estrutura fornecida
+    nome_info = pessoa.get("NOME", "Não Informado")
+    cpf_info = pessoa.get("CPF", "Não Informado")
+    nascimento_info = pessoa.get("NASCIMENTO", "Não Informado")
     
-    # Adicionando prints para depuração
-    print(f"Dados da API para CPF {cpf}: {pessoa}")
-
-    nome_info = pessoa.get("nome", "Não Informado")
-    print(f"Nome: {nome_info}")
-    cpf_info = pessoa.get("cpf", "Não Informado")
-    print(f"CPF: {cpf_info}")
-    nascimento_info = pessoa.get("dt_nascimento", "Não Informado")
-    print(f"Nascimento: {nascimento_info}")
-    sexo_info = pessoa.get("sexo", "Indefinido")
-    print(f"Sexo: {sexo_info}")
-    renda_info = pessoa.get("renda_presumida", "Não Informado")
-    print(f"Renda: {renda_info}")
-    poder_aquisitivo_info = pessoa.get("faixa_renda", "Não Informado")
-    print(f"Poder Aquisitivo: {poder_aquisitivo_info}")
-    email_info = pessoa.get("email", "Não Informado")
-    print(f"Email: {email_info}")
+    # Ajustando o campo sexo
+    sexo_info = pessoa.get("SEXO", "Indefinido")
+    if sexo_info == "F":
+        sexo_info = "Feminino"
+    elif sexo_info == "M":
+        sexo_info = "Masculino"
+    else:
+        sexo_info = "Indefinido"
     
-    # Telefone
-    telefone_info = pessoa.get("contatos", {}).get("celulares", [])
-    telefone_final = ", ".join(telefone_info) if telefone_info else "Não Informado"
-    print(f"Telefone: {telefone_final}")
+    # Renda e poder aquisitivo
+    renda_info = pessoa.get("RENDA", "Não Informado")
+    poder_aquisitivo_info = pessoa.get("PODER_AQUISITIVO", "Não Informado")
 
-    # Status
-    status_info = 'Não Enviada'
+    # Verifica se o campo de poder aquisitivo contém as palavras "BAIXA" ou "BAIXO" para definir o status
+    status_info = "Não Enviada" if "BAIXA" in poder_aquisitivo_info.upper() or "BAIXO" in poder_aquisitivo_info.upper() or "SEM INFORMAÇÃO" in poder_aquisitivo_info.upper()  else "Enviada"
+    
+    # Extração de Email
+    email_info = pessoa.get("EMAIL", [{"EMAIL": "Não Informado"}])[0].get("EMAIL", "Não Informado")
+    
+    # Telefone: Pegando o primeiro número de celular da lista
+    telefone_info = pessoa.get("TELEFONES", [])
+    telefone_final = telefone_info[0]["NUMBER"] if telefone_info else "Não Informado"
 
-    # Processo de limpeza e formatação dos dados extraídos
+    # Processo de limpeza e formatação dos dados
     nome_split = nome_info.split()
     nome = nome_split[0] if nome_split else "Não Informado"
     sobrenome = " ".join(nome_split[1:]) if len(nome_split) > 1 else "Não Informado"
-
-    print(f"Nome: {nome}")
-    print(f"Sobrenome: {sobrenome}")
-    
 
     # Preencher dados no Google Sheets
     data_hora_extracao = obter_data_hora()

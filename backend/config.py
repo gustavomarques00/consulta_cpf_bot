@@ -38,6 +38,10 @@ class Config:
     API_TOKEN = os.getenv("API_TOKEN", "sua_chave") # Token da API
     API_URL = os.getenv("API_URL", "https://hashirosearch.xyz/cpf.php") # URL da API
 
+    # Configurações de delay
+    RETRY_DELAY = int(os.getenv("RETRY_DELAY", 5)) # Delay entre tentativas de consulta à API
+    MAX_RETRIES = int(os.getenv("MAX_RETRIES", 3)) # Número máximo de tentativas de consulta à API
+
 
     # Diretório de downloads
     DOWNLOAD_FOLDER = "downloads/"
