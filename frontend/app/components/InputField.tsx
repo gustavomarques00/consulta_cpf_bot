@@ -43,39 +43,34 @@ export default function InputField({
           control={control}
           rules={rules}
           render={({ field }) => {
-            const fieldValue = field.value ?? ""; // Garante que o valor seja controlado
-
             return type === "textarea" ? (
               <textarea
-                {...field}
+                {...field}  // Não precisa passar "value" explicitamente
                 id={name}
-                value={fieldValue}
                 disabled={disabled}
                 placeholder={placeholder}
-                className={`w-full pl-10 pr-3 py-3 border rounded-md focus:outline-none focus:ring-2 ${
-                  isError ? "border-red-500 focus:ring-red-500" : "border-gray-300 focus:ring-indigo-500"
-                }`}
+                className={`w-full pl-10 pr-3 py-3 border rounded-md focus:outline-none focus:ring-2 ${isError ? "border-red-500 focus:ring-red-500" : "border-gray-300 focus:ring-indigo-500"
+                  }`}
                 rows={4}
                 aria-invalid={isError ? "true" : "false"}
                 aria-describedby={isError ? `${name}-error` : undefined}
               />
             ) : (
               <input
-                {...field}
+                {...field}  // "field" já inclui o valor do campo
                 id={name}
-                disabled={disabled} 
+                disabled={disabled}
                 type={type}
-                value={fieldValue}
                 placeholder={placeholder}
-                className={`w-full pl-10 pr-3 py-3 border rounded-md focus:outline-none focus:ring-2 ${
-                  isError ? "border-red-500 focus:ring-red-500" : "border-gray-300 focus:ring-indigo-500"
-                }`}
+                className={`w-full pl-10 pr-3 py-3 border rounded-md focus:outline-none focus:ring-2 ${isError ? "border-red-500 focus:ring-red-500" : "border-gray-300 focus:ring-indigo-500"
+                  }`}
                 aria-invalid={isError ? "true" : "false"}
                 aria-describedby={isError ? `${name}-error` : undefined}
               />
             );
           }}
         />
+
       </div>
 
       {/* Exibe erro apenas se existir */}

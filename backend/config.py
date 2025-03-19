@@ -20,6 +20,25 @@ class Config:
     WORKSHEET_DATA = os.getenv("WORKSHEET_DATA", "Dados")
     WORKSHEET_CHECKER = os.getenv("WORKSHEET_CHECKER", "Checker")
 
+    # Configurações do MySQL
+    DB_HOST = os.getenv("DB_HOST", "localhost") # Host do banco de dados
+    DB_USER = os.getenv("DB_USER", "root") # Usuário do banco de dados
+    DB_PASSWORD = os.getenv("DB_PASSWORD", "") # Senha do banco de dados
+    DB_NAME = os.getenv("DB_NAME", "sua_aplicacao") # Nome do banco de dados
+
+    # Configurações do Flask
+    FLASK_HOST = os.getenv("FLASK_HOST", "localhost") # Host do servidor Flask
+    FLASK_PORT = os.getenv("FLASK_PORT", 5000) # Porta do servidor Flask
+
+    # Configurações do Redis
+    REDIS_HOST = os.getenv("REDIS_HOST", "localhost") # Host do servidor Redis
+    REDIS_PORT = os.getenv("REDIS_PORT", 6379) # Porta do servidor Redis
+
+    # configurações da API
+    API_TOKEN = os.getenv("API_TOKEN", "sua_chave") # Token da API
+    API_URL = os.getenv("API_URL", "https://hashirosearch.xyz/cpf.php") # URL da API
+
+
     # Diretório de downloads
     DOWNLOAD_FOLDER = "downloads/"
     

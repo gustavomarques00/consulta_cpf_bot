@@ -1,4 +1,4 @@
-'use client';
+'use client'
 
 import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
@@ -25,13 +25,15 @@ export default function Register() {
   const [success, setSuccess] = useState<string>("");
   const [isClient, setIsClient] = useState(false);
   const [showPopUp, setShowPopUp] = useState<boolean>(false);
-  const [tipoUsuario, setTipoUsuario] = useState<string>("");
+  const [tipoUsuario, setTipoUsuario] = useState<string>("Chefe de Equipe"); // Definindo Chefe de Equipe como padrão
+  const [codigoChefe, setCodigoChefe] = useState<string>("");
 
   const { control, handleSubmit, formState: { errors }, watch, setValue } = useForm<RegisterFormData>();
 
   useEffect(() => {
     setIsClient(true);
-  }, []);
+    setValue("tipoUsuario", "Chefe de Equipe"); // Set default value for tipoUsuario
+  }, [setValue, tipoUsuario]);
 
   const onSubmit = async (data: RegisterFormData) => {
     setLoading(true);
@@ -59,14 +61,23 @@ export default function Register() {
   };
 
   const handleTipoUsuarioChange = (value: string) => {
+    console.log(value);
     setTipoUsuario(value);
-    if (value !== "Operador") {
-      // Limpar campo de código se não for Operador
-      setValue("codigoChefe", "");
+    if (value === "Chefe de Equipe") {
+      // Gerar um código aleatório para Chefe de Equipe
+      const generatedCode = "CE-" + Math.random().toString(36).substring(2, 8).toUpperCase();
+      setCodigoChefe(generatedCode);
+      setValue("codigoChefe", generatedCode); // Preenche o campo com o código gerado
+    } else if (value === "Operador") {
+      // Deixar o campo de código vazio para Operador
+      setCodigoChefe("");
+      setValue("codigoChefe", ""); // Deixa o campo vazio
+    } else {
+      setCodigoChefe("");
+      setValue("codigoChefe", ""); // Limpa o campo para "Independente"
     }
   };
 
-  
   if (!isClient) {
     return null;
   }
@@ -130,11 +141,14 @@ export default function Register() {
               label="Tipo de Usuário"
               name="tipoUsuario"
               control={control}
-              rules={{ required: "O tipo de usuário é obrigatório" }}  // Regras de validação
+              Icon={FiPhone}
+              rules={{ required: "O tipo de usuário é obrigatório" }}
               errors={errors}
-              options={["Operador", "Chefe de Equipe", "Independente"]}  // Opções para o seletor
-              placeholder="Selecione um tipo de usuário"
+              options={["Operador", "Chefe de Equipe", "Independente"]}
+              onChange={handleTipoUsuarioChange} // Handle change event
+              // Define "Chefe de Equipe" como padrão
             />
+
             <p className="text-sm text-gray-500 mt-2">
               <strong>Operador:</strong> Precisa inserir o código do chefe de equipe.<br />
               <strong>Chefe de Equipe:</strong> Código gerado automaticamente.<br />
@@ -182,7 +196,8 @@ export default function Register() {
               type="text"
               Icon={FiKey}
               placeholder="Digite o código do chefe de equipe"
-              rules={{ required: "O código do chefe é obrigatório" }}
+              rules={tipoUsuario === "Operador" ? { required: "O código do chefe é obrigatório" } : {}}
+              disabled={tipoUsuario === "Independente" || tipoUsuario === "Chefe de Equipe"} // Desabilita o campo conforme o tipo de usuário
             />
           </div>
 
