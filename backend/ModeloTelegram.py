@@ -9,13 +9,66 @@ from config import Config  # Importando a classe de configuração
 
 # Funções auxiliares
 
+def autenticar_outra_planilha(sheet_name):
+    """Autentica uma nova planilha do Google Sheets e retorna a referência à planilha especificada."""
+    try:
+        # Utiliza a mesma autenticação com o arquivo de credenciais já fornecido
+        scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+        creds = ServiceAccountCredentials.from_json_keyfile_name(Config.CREDENTIALS_FILE, scope)
+        client = gspread.authorize(creds)
+        
+        # Abre a nova planilha pelo nome
+        return client.open(sheet_name)
+    except Exception as e:
+        print(f"❌ Erro na autenticação da nova planilha {sheet_name}: {e}")
+        return None
+
+def obter_dados_outra_planilha(sheet_name, worksheet_name):
+    """Obtém os CPFs da coluna H na aba 'Dados Twizzy' da planilha específica."""
+    try:
+        # Autentica e abre a planilha específica pelo ID
+        client = autenticar_google_sheets()
+        if not client:
+            return []
+
+        # Abre a planilha pelo ID e acessa a aba específica
+        planilha = client.open_by_key(sheet_id)
+        worksheet = planilha.worksheet(worksheet_name)
+        
+        # Obtém os dados da coluna H (CPF) na aba 'Dados Twizzy'
+        dados = worksheet.col_values(8)  # Coluna H é a coluna 8 (começa em 1)
+        
+        # Filtra CPFs válidos (apenas números e com 11 dígitos)
+        cpfs_validos = [cpf for cpf in dados if re.match(r'^\d{11}$', cpf)]
+        return cpfs_validos
+    except Exception as e:
+        print(f"❌ Erro ao acessar os dados da planilha: {e}")
+        return []
+
+def processar_dados_de_outra_planilha(sheet_data, sheet_name, worksheet_name):
+    """Processa os dados de outra planilha e os insere na planilha 'Data'."""
+    dados_outra_planilha = obter_dados_outra_planilha(sheet_name, worksheet_name)
+    
+    if not dados_outra_planilha:
+        print("⚠️ Nenhum dado encontrado na planilha de origem.")
+        return
+
+    # Aqui você pode implementar a lógica para processar os dados da outra planilha
+    # Vamos supor que você queira apenas copiar para a planilha 'Data'.
+    for linha in dados_outra_planilha:
+        # Faça o processamento necessário (como transformar dados, validar, etc.)
+        # Exemplo: Adicionando uma nova linha na planilha 'Data'
+        sheet_data.append_row(linha)
+
+    print("✅ Dados da outra planilha processados e adicionados na 'Data'.")
+
 def autenticar_google_sheets():
     """Autentica no Google Sheets e retorna a planilha."""
     try:
         scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
         creds = ServiceAccountCredentials.from_json_keyfile_name(Config.CREDENTIALS_FILE, scope)
         client = gspread.authorize(creds)
-        return client.open(Config.SHEET_NAME)
+        return client
     except Exception as e:
         print(f"❌ Erro na autenticação do Google Sheets: {e}")
         return None
@@ -57,17 +110,31 @@ def reagendar_cpf_checker(sheet_checker, cpf_falha):
         print(f"❌ Erro ao reagendar CPF {cpf_falha}: {e}")
 
 def obter_cpfs_da_aba_checker(sheet_checker):
-    """Obtém todos os CPFs da aba 'Checker' para processamento."""
+    """Obtém todos os CPFs da aba 'Checker' para processamento, filtrando valores vazios ou inválidos."""
     try:
         dados_checker = sheet_checker.get_all_values()
         if len(dados_checker) <= 1:
             print("⚠️ Nenhum dado encontrado na aba 'Checker'.")
             return []
-        cpfs = [linha[0] for linha in dados_checker[1:]]  # Ignora o cabeçalho
+        
+        # Filtrando CPFs válidos e não vazios
+        cpfs = [linha[0] for linha in dados_checker[1:] if linha[0] and re.match(r'^\d{11}$', linha[0])]  # Valida o CPF com 11 dígitos
         return cpfs
     except Exception as e:
         print(f"❌ Erro ao obter CPFs da aba 'Checker': {e}")
         return []
+
+def verificar_cpf_existente(sheet_data, cpf):
+    """Verifica se o CPF já existe na aba 'Dados'. Retorna True se existir, False caso contrário."""
+    try:
+        dados_data = sheet_data.get_all_values()
+        for linha in dados_data[1:]:  # Ignora o cabeçalho
+            if linha[0] == cpf:
+                return True  # CPF já existe na aba 'Dados'
+        return False  # CPF não existe na aba 'Dados'
+    except Exception as e:
+        print(f"❌ Erro ao verificar CPF na aba 'Dados': {e}")
+        return False
 
 def consultar_api(cpf):
     """Consulta a API para obter os dados do CPF."""
@@ -81,7 +148,12 @@ def consultar_api(cpf):
         return None
 
 def processar_cpf(cpf, sheet_data, sheet_checker):
-    """Processa o CPF e atualiza os dados na planilha."""
+    """Processa o CPF e atualiza os dados na planilha, com verificação de duplicidade."""
+    # Verificar se o CPF já foi processado
+    if verificar_cpf_existente(sheet_data, cpf):
+        print(f"ℹ️ CPF {cpf} já foi processado anteriormente. Pulando...")
+        return  # Se o CPF já foi processado, pula o processamento
+
     dados_api = consultar_api(cpf)
     contagem = 0  # Contador de tentativas de consulta à API
     print(f"ℹ️ Processando CPF {cpf}...")
@@ -120,7 +192,7 @@ def processar_cpf(cpf, sheet_data, sheet_checker):
     poder_aquisitivo_info = pessoa.get("PODER_AQUISITIVO", "Não Informado")
 
     # Verifica se o campo de poder aquisitivo contém as palavras "BAIXA" ou "BAIXO" para definir o status
-    status_info = "Não Enviada" if "BAIXA" in poder_aquisitivo_info.upper() or "BAIXO" in poder_aquisitivo_info.upper() or "SEM INFORMAÇÃO" in poder_aquisitivo_info.upper()  else "Enviada"
+    status_info = "Não Enviada" if "BAIXA" in poder_aquisitivo_info.upper() or "BAIXO" in poder_aquisitivo_info.upper() or "SEM INFORMAÇÃO" in poder_aquisitivo_info.upper() else "Enviada"
     
     # Extração de Email
     email_info = pessoa.get("EMAIL", [{"EMAIL": "Não Informado"}])[0].get("EMAIL", "Não Informado")
@@ -156,22 +228,43 @@ def processar_cpf(cpf, sheet_data, sheet_checker):
 
 # Função principal para executar o processo
 def main():
+    # Autentica e abre a planilha principal pelo nome ou ID
     sheet = autenticar_google_sheets()
     if sheet is None:
         print("❌ Erro na autenticação do Google Sheets!")
         return
 
-    sheet_checker = sheet.worksheet(Config.WORKSHEET_CHECKER)
-    sheet_data = sheet.worksheet(Config.WORKSHEET_DATA)
+    # Agora vamos acessar as abas específicas dentro da planilha
+    try:
+        sheet_checker = sheet.open(Config.SHEET_NAME).worksheet(Config.WORKSHEET_CHECKER)
+        sheet_data = sheet.open(Config.SHEET_NAME).worksheet(Config.WORKSHEET_DATA)
+    except Exception as e:
+        print(f"❌ Erro ao acessar as abas: {e}")
+        return
 
+    # Obter CPFs da aba 'Checker'
     cpfs = obter_cpfs_da_aba_checker(sheet_checker)
     if not cpfs:
         print("⚠️ Nenhum CPF encontrado para processar!")
         return
 
+    # Processar CPFs da aba 'Checker'
     for cpf in cpfs:
         processar_cpf(cpf, sheet_data, sheet_checker)
-    print("✅ Processamento concluído!")
+    print("✅ Processamento dos CPFs concluído!")
+
+    # ID da planilha de dados Twizzy (obtido do link compartilhado)
+    sheet_id = "1u11Btk8RdNTZRnmbBYjs3gWE1rQYgXS8x3LLWpw4ils"
+    worksheet_name = "Dados Twizzy"  # Nome da aba na planilha
+
+    # Obter CPFs da coluna H da aba 'Dados Twizzy'
+    cpfs_twizzy = obter_dados_outra_planilha(sheet_id, worksheet_name)
+    if not cpfs_twizzy:
+        print("⚠️ Nenhum CPF encontrado na planilha 'Dados Twizzy'.")
+        return
+
+    print(f"⚙️ CPFs encontrados na planilha 'Dados Twizzy': {cpfs_twizzy}")
+    # Aqui você pode adicionar a lógica de processar esses CPFs como desejar.
 
 if __name__ == "__main__":
     main()
