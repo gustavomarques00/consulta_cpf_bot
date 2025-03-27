@@ -1,31 +1,64 @@
-# Ignorar arquivos sensíveis
+# ==============================
+# 🛡️ ARQUIVOS SENSÍVEIS
+# ==============================
 .env
+.env.*
 credenciais.json
+session_name.session*
+orientacao_bot.session
+config.py
 
-# Ignorar diretórios de dependências e caches do Python
-/backend/__pycache__/
+# ==============================
+# 🐍 BACKEND - Python / Flask
+# ==============================
 *.pyc
 *.pyo
 *.pyd
-
-
-/backend/.env
-/backend/venv/
-
-# Ignorar logs e arquivos temporários
+__pycache__/
 *.log
-logs/
-tmp/
 *.bak
+*.swp
 
-# Ignorar pastas do ambiente virtual do Python
+# pytest / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.cache/
+
+# Ambientes virtuais
 venv/
-.env/
 .venv/
+backend/venv/
+backend/.env
 
-# Ignorar arquivos do sistema operacional (Windows e Mac)
+# ==============================
+# ⚛️ FRONTEND - Next.js / Node.js
+# ==============================
+node_modules/
+.next/
+out/
+dist/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Ambiente local
+frontend/.env.local
+frontend/.env.development
+frontend/.env.production
+
+# ==============================
+# 💻 EDITORES / SISTEMAS
+# ==============================
+.vscode/
+.idea/
 .DS_Store
 Thumbs.db
 
-# Ignorar pastas do Telethon
-session_name.session*
+# ==============================
+# 🧪 OUTROS
+# ==============================
+logs/
+tmp/
