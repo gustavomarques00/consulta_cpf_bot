@@ -9,7 +9,59 @@ auth_bp = Blueprint('auth_bp', __name__)
 
 @auth_bp.route('/register', methods=['POST'])
 def register():
+    """
+    Registra um novo usuário no sistema.
+    ---
+    tags:
+      - Autenticação
+    consumes:
+      - application/json
+    parameters:
+      - in: body
+        name: body
+        description: Dados do novo usuário
+        required: true
+        schema:
+          type: object
+          required:
+            - nome
+            - email
+            - telefone
+            - tipoUsuario
+            - senha
+            - confirmarSenha
+          properties:
+            nome:
+              type: string
+              example: Gustavo Marques
+            email:
+              type: string
+              example: gustavo@email.com
+            telefone:
+              type: string
+              example: (11) 91234-5678
+            tipoUsuario:
+              type: string
+              example: ADM
+            senha:
+              type: string
+              example: SenhaForte123!
+            confirmarSenha:
+              type: string
+              example: SenhaForte123!
+            cargo:
+              type: string
+              example: ADM
+    responses:
+      201:
+        description: Usuário registrado com sucesso
+      400:
+        description: Erro de validação
+      500:
+        description: Erro no banco de dados
+    """
     data = request.get_json()
+
     nome = data.get('nome')
     email = data.get('email')
     telefone = data.get('telefone')
@@ -18,6 +70,7 @@ def register():
     confirmar_senha = data.get('confirmarSenha')
     cargo = data.get('cargo', 'Usuario')
 
+    # Validações
     if not nome or not email or not telefone or not tipo_usuario or not senha or not confirmar_senha:
         return jsonify({"error": "Todos os campos são obrigatórios!"}), 400
 
@@ -34,19 +87,26 @@ def register():
         return jsonify({"error": "Senha fraca. Use uma mais segura!"}), 400
 
     if tipo_usuario not in valid_user_types:
-        return jsonify({"error": f"Tipo de usuário inválido. Válidos: {', '.join(valid_user_types)}"}), 400
+        return jsonify({
+            "error": f"Tipo de usuário inválido. Válidos: {', '.join(valid_user_types)}"
+        }), 400
 
+    # Criptografar senha
     hashed_senha = bcrypt.hashpw(senha.encode('utf-8'), bcrypt.gensalt())
 
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
+
+        # Verificar se o email já está cadastrado
         cursor.execute("SELECT * FROM usuarios WHERE email = %s", (email,))
         if cursor.fetchone():
             return jsonify({"error": "Email já cadastrado!"}), 400
 
+        # Inserir novo usuário
         cursor.execute(
-            "INSERT INTO usuarios (nome, email, telefone, tipo_usuario, senha, cargo) VALUES (%s, %s, %s, %s, %s, %s)",
+            "INSERT INTO usuarios (nome, email, telefone, tipo_usuario, senha, cargo) "
+            "VALUES (%s, %s, %s, %s, %s, %s)",
             (nome, email, telefone, tipo_usuario, hashed_senha, cargo)
         )
         conn.commit()

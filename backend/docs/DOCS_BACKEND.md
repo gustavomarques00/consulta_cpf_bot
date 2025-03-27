@@ -1,4 +1,4 @@
-# 💼 Backend - Gerenciamento de Planos com Flask + MySQL
+# 📘 Documentação Técnica - Backend API (Flask)
 
 Este projeto é uma API RESTful construída com **Flask** que permite o gerenciamento de usuários, planos e autenticação baseada em **JWT**, incluindo permissões especiais para super administradores (ADM).
 
@@ -84,17 +84,33 @@ TESTES AUTOMATIZADOS (com pytest):
 
 - pytest tests/
 
-### 📬 Endpoints Principais
-
-| Método | Rota                   | Protegida?   | Descrição                              |
-|--------|------------------------|--------------|----------------------------------------|
-| POST   | /register              | ❌ Não        | Cadastro de usuário                    |
-| POST   | /api/generate-token    | ❌ Não        | Gera token JWT                         |
-| GET    | /api/plans             | ❌ Não        | Lista de planos disponíveis            |
-| GET    | /api/user-plans        | ✅ Sim        | Plano do usuário logado                |
-| GET    | /api/superadmin/test   | ✅ Sim (ADM)  | Rota exclusiva para Super Admins       |
-
 ---
+
+## 📬 Endpoints
+
+| Método | Rota                            | Protegida? | Descrição |
+|--------|---------------------------------|------------|-----------|
+| POST   | /register                       | ❌         | Cadastro de usuário |
+| POST   | /api/generate-token             | ❌         | Geração de tokens (access + refresh) |
+| POST   | /api/refresh-token              | ❌         | Renova access token |
+| GET    | /api/plans                      | ❌         | Lista todos os planos |
+| GET    | /api/user-plans                 | ✅         | Plano do usuário autenticado |
+| GET    | /api/superadmin/test            | ✅ ADM     | Rota de teste ADM |
+| POST   | /api/revoke-token               | ✅ ADM     | Revoga um access_token |
+| GET    | /api/admin/refresh-tokens       | ✅ ADM     | Lista refresh_tokens (com filtros) |
+| POST   | /api/admin/revoke-refresh-token | ✅ ADM     | Revoga um refresh_token |
+| GET    | /api/admin/token-blacklist      | ✅ ADM     | Lista access_tokens revogados |
+
+
+## 🧪 Testes com Pytest
+
+- Testes automatizados para:
+  - Cadastro
+  - Geração de token
+  - Listagem de planos
+  - Rotas protegidas
+  - Blacklist e revogação
+
 
 ### 🔐 Autenticação JWT
 
