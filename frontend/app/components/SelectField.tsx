@@ -1,17 +1,17 @@
 import React from "react";
-import { Controller, Control, FieldErrors } from "react-hook-form"; // Certifique-se de importar o Controller
-import { IconType } from "react-icons"; // Import IconType from react-icons
+import { Controller, Control, FieldErrors } from "react-hook-form";
+import { IconType } from "react-icons"; // Suporte para ícones dinâmicos
 
 interface SelectFieldProps {
   label: string;
   name: string;
   control: Control<any>;
   errors: FieldErrors<any>;
-  options: string[]; // Defina a propriedade `options` para o select
-  rules?: any; // Validações adicionais
+  options: string[];
+  rules?: any;
   placeholder?: string;
-  onChange?: (value: string) => void; // Add onChange property
-  Icon?: IconType; // Ícone opcional
+  onChange?: (value: string) => void; // Propriedade onChange adicionada
+  Icon?: IconType;
 }
 
 export default function SelectField({
@@ -21,10 +21,11 @@ export default function SelectField({
   errors,
   options,
   rules,
-  Icon,
   placeholder,
+  onChange, // Passando a função onChange como prop
+  Icon,
 }: SelectFieldProps) {
-  const isError = !!errors[name]; // Verifica se há erro
+  const isError = Boolean(errors[name]); // Verifica se há erro
 
   return (
     <div className="w-full">
@@ -33,26 +34,27 @@ export default function SelectField({
       </label>
 
       <div className="relative">
-        {/* Ícone dentro do input */}
         {Icon && <Icon className="absolute left-3 top-3 text-gray-500" size={20} />}
-
 
         <Controller
           name={name}
           control={control}
-          rules={rules} // Passando 'rules' para o Controller
+          rules={rules}
           render={({ field }) => (
             <select
-            
               {...field}
-              id={name}
+              value={field.value ?? ""} // Vincula o valor ao React Hook Form
               onChange={(e) => {
-                field.onChange(e);
+                const value = e.target.value;
+                field.onChange(value); // Atualiza o valor no React Hook Form
+                if (onChange) {
+                  onChange(value); // Chama a função onChange do componente, se passada como prop
+                }
               }}
-              className={`w-full pl-3 pr-10 py-3 border rounded-md focus:outline-none focus:ring-2 ${isError
-                ? "border-red-500 focus:ring-red-500"
-                : "border-gray-300 focus:ring-indigo-500"
-                }`}
+              id={name}
+              className={`w-full pl-10 pr-3 py-3 border rounded-md focus:outline-none focus:ring-2 ${
+                isError ? "border-red-500 focus:ring-red-500" : "border-gray-300 focus:ring-indigo-500"
+              }`}
               aria-invalid={isError ? "true" : "false"}
               aria-describedby={isError ? `${name}-error` : undefined}
             >

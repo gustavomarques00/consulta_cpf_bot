@@ -1,11 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { read, utils } from "xlsx";
+import axios from "axios"; // Instale axios: npm install axios
 import FileUploader from "../components/FileUploader";
 import StatsPanel from "../components/StatsPanel";
 import CpfList from "../components/CpfList";
-import { isValidCPF } from "../utils/dataUtils";
 
 export default function SearchPage() {
   const [cpfList, setCpfList] = useState<string[]>([]);
@@ -15,37 +14,32 @@ export default function SearchPage() {
     if (event.target.files?.length) {
       const file = event.target.files[0];
 
-      // Lendo o arquivo XLSX/CSV
-      const reader = new FileReader();
-      reader.readAsArrayBuffer(file);
-      reader.onload = (e) => {
-        if (e.target?.result) {
-          const workbook = read(new Uint8Array(e.target.result as ArrayBuffer), { type: "array" });
-          const sheet = workbook.Sheets[workbook.SheetNames[0]];
-          const data = utils.sheet_to_json(sheet, { header: 1 });
+      // Criar um FormData para enviar o arquivo
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("source_type", "excel");  // Ou "google_sheets" se o arquivo for de lá
 
-          // Extraindo CPFs da primeira coluna
-          const extractedCpfs = data
-            .slice(1) // Ignorando o cabeçalho
-            .map((row: any) => String(row[0]).trim().replace(/\D/g, "")) // Remove caracteres não numéricos
-            .filter((cpf) => cpf.length === 11); // Filtra apenas CPFs com 11 dígitos
+      try {
+        // Enviar o arquivo para a rota do backend
+        const response = await axios.post("http://localhost:5000/upload-cpf", formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        });
 
-          // Separando CPFs válidos e inválidos
-          const validCpfs = extractedCpfs.filter(isValidCPF);
-          const invalidCpfs = extractedCpfs.filter((cpf) => !isValidCPF(cpf));
-
-          // Removendo duplicatas
-          const uniqueValidCpfs = Array.from(new Set(validCpfs));
-
-          setCpfList(uniqueValidCpfs);
-          setStats({
-            total: extractedCpfs.length,
-            valid: uniqueValidCpfs.length,
-            invalid: invalidCpfs.length,
-            duplicates: validCpfs.length - uniqueValidCpfs.length,
-          });
-        }
-      };
+        // Processar a resposta
+        const data = response.data;
+        setCpfList(data.validCpfs);
+        setStats({
+          total: data.total,
+          valid: data.valid,
+          invalid: data.invalid,
+          duplicates: data.duplicates,
+        });
+      } catch (error) {
+        console.error("Erro ao enviar o arquivo", error);
+        // Trate o erro conforme necessário
+      }
     }
   };
 

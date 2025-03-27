@@ -1,7 +1,7 @@
 "use client";
 
 import { Controller, Control, FieldErrors } from "react-hook-form";
-import { IconType } from "react-icons"; // Suporte para ícones dinâmicos
+import { IconType } from "react-icons";
 
 interface InputFieldProps {
   label: string;
@@ -12,7 +12,7 @@ interface InputFieldProps {
   placeholder?: string;
   disabled?: boolean;
   errors: FieldErrors<any>;
-  Icon?: IconType; // Ícone opcional
+  Icon?: IconType;
 }
 
 export default function InputField({
@@ -26,7 +26,7 @@ export default function InputField({
   errors,
   Icon,
 }: InputFieldProps) {
-  const isError = !!errors[name]; // Verifica se há erro
+  const isError = Boolean(errors[name]); // Verifica se há erro no campo
 
   return (
     <div className="w-full">
@@ -45,32 +45,35 @@ export default function InputField({
           render={({ field }) => {
             return type === "textarea" ? (
               <textarea
-                {...field}  // Não precisa passar "value" explicitamente
+                {...field}
                 id={name}
                 disabled={disabled}
+                value={field.value ?? ""} // Garante que o valor nunca seja undefined
                 placeholder={placeholder}
-                className={`w-full pl-10 pr-3 py-3 border rounded-md focus:outline-none focus:ring-2 ${isError ? "border-red-500 focus:ring-red-500" : "border-gray-300 focus:ring-indigo-500"
-                  }`}
+                className={`w-full pl-10 pr-3 py-3 border rounded-md focus:outline-none focus:ring-2 ${
+                  isError ? "border-red-500 focus:ring-red-500" : "border-gray-300 focus:ring-indigo-500"
+                }`}
                 rows={4}
                 aria-invalid={isError ? "true" : "false"}
                 aria-describedby={isError ? `${name}-error` : undefined}
               />
             ) : (
               <input
-                {...field}  // "field" já inclui o valor do campo
+                {...field}
                 id={name}
                 disabled={disabled}
+                value={field.value ?? ""} // Garante que o valor nunca seja undefined
                 type={type}
                 placeholder={placeholder}
-                className={`w-full pl-10 pr-3 py-3 border rounded-md focus:outline-none focus:ring-2 ${isError ? "border-red-500 focus:ring-red-500" : "border-gray-300 focus:ring-indigo-500"
-                  }`}
+                className={`w-full pl-10 pr-3 py-3 border rounded-md focus:outline-none focus:ring-2 ${
+                  isError ? "border-red-500 focus:ring-red-500" : "border-gray-300 focus:ring-indigo-500"
+                }`}
                 aria-invalid={isError ? "true" : "false"}
                 aria-describedby={isError ? `${name}-error` : undefined}
               />
             );
           }}
         />
-
       </div>
 
       {/* Exibe erro apenas se existir */}

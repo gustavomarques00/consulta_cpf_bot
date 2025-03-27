@@ -1,4 +1,13 @@
-'use client'
+// Code: Página de Registro de Usuário
+
+// Ajustar o campo SelectField para aceitar a propriedade onChange
+// Adicionar a propriedade onChange ao componente SelectField
+// Passar a função onChange para o componente SelectField
+// Atualizar o valor do campo código de chefe conforme o tipo de usuário selecionado
+// Adicionar a propriedade disabled ao campo de código de chefe
+// Desabilitar o campo de código de chefe conforme o tipo de usuário selecionado
+
+'use client';
 
 import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
@@ -31,8 +40,9 @@ export default function Register() {
   const { control, handleSubmit, formState: { errors }, watch, setValue } = useForm<RegisterFormData>();
 
   useEffect(() => {
-    setIsClient(true);
+    setIsClient(true); // Define que o cliente está pronto
     setValue("tipoUsuario", "Chefe de Equipe"); // Set default value for tipoUsuario
+    setValue("codigoChefe", ""); // Certifique-se de inicializar o campo
   }, [setValue, tipoUsuario]);
 
   const onSubmit = async (data: RegisterFormData) => {
@@ -61,25 +71,23 @@ export default function Register() {
   };
 
   const handleTipoUsuarioChange = (value: string) => {
-    console.log(value);
-    setTipoUsuario(value);
+    console.log(value); // Verifica o valor selecionado
+    setTipoUsuario(value); // Atualiza o estado
+    setValue("tipoUsuario", value); // Atualiza o valor no React Hook Form
+
+    // Atualiza o campo código de chefe, se necessário
     if (value === "Chefe de Equipe") {
-      // Gerar um código aleatório para Chefe de Equipe
       const generatedCode = "CE-" + Math.random().toString(36).substring(2, 8).toUpperCase();
       setCodigoChefe(generatedCode);
-      setValue("codigoChefe", generatedCode); // Preenche o campo com o código gerado
-    } else if (value === "Operador") {
-      // Deixar o campo de código vazio para Operador
-      setCodigoChefe("");
-      setValue("codigoChefe", ""); // Deixa o campo vazio
+      setValue("codigoChefe", generatedCode);
     } else {
       setCodigoChefe("");
-      setValue("codigoChefe", ""); // Limpa o campo para "Independente"
+      setValue("codigoChefe", "");
     }
   };
 
   if (!isClient) {
-    return null;
+    return null;  // Retorna nulo se não for um cliente
   }
 
   return (
@@ -140,15 +148,13 @@ export default function Register() {
             <SelectField
               label="Tipo de Usuário"
               name="tipoUsuario"
+              Icon={FiUser}
               control={control}
-              Icon={FiPhone}
-              rules={{ required: "O tipo de usuário é obrigatório" }}
               errors={errors}
               options={["Operador", "Chefe de Equipe", "Independente"]}
-              onChange={handleTipoUsuarioChange} // Handle change event
-              // Define "Chefe de Equipe" como padrão
+              onChange={handleTipoUsuarioChange} // Passando a função que lida com a mudança
+              placeholder="Selecione o tipo de usuário"
             />
-
             <p className="text-sm text-gray-500 mt-2">
               <strong>Operador:</strong> Precisa inserir o código do chefe de equipe.<br />
               <strong>Chefe de Equipe:</strong> Código gerado automaticamente.<br />
@@ -197,7 +203,7 @@ export default function Register() {
               Icon={FiKey}
               placeholder="Digite o código do chefe de equipe"
               rules={tipoUsuario === "Operador" ? { required: "O código do chefe é obrigatório" } : {}}
-              disabled={tipoUsuario === "Independente" || tipoUsuario === "Chefe de Equipe"} // Desabilita o campo conforme o tipo de usuário
+              disabled={tipoUsuario === "Independente" || tipoUsuario === "Chefe de Equipe"} // Desabilita para "Independente" ou "Chefe de Equipe"
             />
           </div>
 

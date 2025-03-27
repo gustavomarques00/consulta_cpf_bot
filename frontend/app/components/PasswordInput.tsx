@@ -1,21 +1,24 @@
-'use client';
-
+import React, { useState } from "react";
 import { Controller, Control, FieldErrors } from "react-hook-form";
-import { useState } from "react";
-import { AiFillEye, AiFillEyeInvisible } from "react-icons/ai"; // ícones de olho
-import ErrorMessage from "./ErrorMessage";
+import { AiFillEye, AiFillEyeInvisible } from "react-icons/ai"; // Ícones de olho
 
 interface PasswordInputProps {
   label: string;
   name: string;
   control: Control<any>;
-  rules: any;
   errors: FieldErrors<any>;
+  rules?: any;
 }
 
-export default function PasswordInput({ label, name, control, rules, errors }: PasswordInputProps) {
-  const [showPassword, setShowPassword] = useState(false); // Estado para alternar a visibilidade
-  const error = errors[name];
+export default function PasswordInput({
+  label,
+  name,
+  control,
+  errors,
+  rules,
+}: PasswordInputProps) {
+  const [showPassword, setShowPassword] = useState(false); // Controla a visibilidade da senha
+  const isError = Boolean(errors[name]); // Verifica se há erro
 
   return (
     <div className="w-full">
@@ -33,17 +36,17 @@ export default function PasswordInput({ label, name, control, rules, errors }: P
               {...field}
               id={name}
               type={showPassword ? "text" : "password"} // Alterna o tipo do campo
-              className={`w-full mt-2 p-3 border rounded-md focus:outline-none focus:ring-2 ${
-                error ? "border-red-500 focus:ring-red-500" : "border-gray-300 focus:ring-indigo-500"
-              }`}
-              placeholder="Sua senha"
-              aria-invalid={error ? "true" : "false"}
-              aria-describedby={error ? `${name}-error` : undefined}
+              value={field.value ?? ""} // Garante que o valor seja sempre uma string (evita undefined)
+              onChange={(e) => field.onChange(e.target.value)} // Atualiza o valor do formulário
+              className={`w-full pl-3 pr-3 py-3 border rounded-md focus:outline-none focus:ring-2 ${isError
+                ? "border-red-500 focus:ring-red-500"
+                : "border-gray-300 focus:ring-indigo-500"
+                }`}
+              aria-invalid={isError ? "true" : "false"}
+              aria-describedby={isError ? `${name}-error` : undefined}
             />
           )}
         />
-        
-        {/* Ícone de olho */}
         <button
           type="button"
           onClick={() => setShowPassword((prev) => !prev)} // Alterna o estado de visibilidade
@@ -53,8 +56,15 @@ export default function PasswordInput({ label, name, control, rules, errors }: P
         </button>
       </div>
 
-      {/* Exibe erro apenas se existir */}
-      {error && <ErrorMessage error={error} />}
+      {isError && (
+        <p id={`${name}-error`} className="text-red-500 text-sm mt-1">
+          {errors[name]?.message as string}
+        </p>
+      )}
     </div>
   );
 }
+
+
+
+

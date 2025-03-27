@@ -3,20 +3,11 @@
 import { useState, useEffect } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
-import { FaHome, FaLock, FaRegHandshake, FaTachometerAlt, FaSearch, FaCreditCard, FaExchangeAlt, FaComments, FaUser, FaCog, FaChevronLeft, FaChevronRight } from 'react-icons/fa'; // Ícones do React Icons
+import { FaHome, FaLock, FaRegHandshake, FaTachometerAlt, FaSearch, FaCreditCard, FaExchangeAlt, FaComments, FaUser, FaCog, FaChevronLeft, FaChevronRight, FaMoneyBill } from 'react-icons/fa'; // Ícones do React Icons
 import SidebarLink from "./components/SidebarLink"; // Importando o componente SidebarLink
 import "./globals.css";
 import ThemeProvider from "./ThemeProvider";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+import { FaCloudBolt } from "react-icons/fa6";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
@@ -35,7 +26,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <html lang="pt-BR">
-      <body className="antialiased bg-white dark:bg-gray-900 dark:text-white min-h-screen">
+      <body className=" bg-white dark:bg-gray-900 dark:text-white min-h-screen">
         <ThemeProvider>
           <div className="flex overflow-hidden min-h-screen">
             {/* Sidebar Dinâmica - Com ícones e texto chamativo */}
@@ -63,6 +54,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     <SidebarLink to="/search" icon={FaSearch} label="Buscar" isSidebarOpen={sidebarOpen} />
                     <SidebarLink to="/operation" icon={FaExchangeAlt} label="Operação" isSidebarOpen={sidebarOpen} />
                     <SidebarLink to="/plans" icon={FaCreditCard} label="Planos" isSidebarOpen={sidebarOpen} />
+                    <SidebarLink to="/admin-panel" icon={FaMoneyBill} label="Painel Admin" isSidebarOpen={sidebarOpen} />
                     <SidebarLink to="/support" icon={FaComments} label="Suporte" isSidebarOpen={sidebarOpen} />
                   </ul>
                 </nav>
