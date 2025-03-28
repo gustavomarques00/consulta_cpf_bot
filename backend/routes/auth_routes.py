@@ -5,6 +5,7 @@ from utils.validators import is_valid_email, is_valid_password, is_valid_phone, 
 import bcrypt
 import mysql.connector
 
+# Blueprint de autenticação
 auth_bp = Blueprint('auth_bp', __name__)
 
 @auth_bp.route('/register', methods=['POST'])
@@ -14,6 +15,8 @@ def register():
     ---
     tags:
       - Autenticação
+    summary: Cria um novo usuário
+    description: Endpoint para cadastro de um novo usuário, com validações e senha criptografada.
     consumes:
       - application/json
     parameters:
@@ -55,10 +58,28 @@ def register():
     responses:
       201:
         description: Usuário registrado com sucesso
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+              example: Usuário registrado com sucesso!
       400:
-        description: Erro de validação
+        description: Erro de validação nos dados de entrada
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+              example: Email já cadastrado!
       500:
-        description: Erro no banco de dados
+        description: Erro interno do servidor ou banco de dados
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+              example: Erro no banco de dados: ...
     """
     data = request.get_json()
 
@@ -70,7 +91,7 @@ def register():
     confirmar_senha = data.get('confirmarSenha')
     cargo = data.get('cargo', 'Usuario')
 
-    # Validações
+    # ===== Validações dos dados recebidos =====
     if not nome or not email or not telefone or not tipo_usuario or not senha or not confirmar_senha:
         return jsonify({"error": "Todos os campos são obrigatórios!"}), 400
 
@@ -91,25 +112,29 @@ def register():
             "error": f"Tipo de usuário inválido. Válidos: {', '.join(valid_user_types)}"
         }), 400
 
-    # Criptografar senha
+    # Criptografar a senha com bcrypt
     hashed_senha = bcrypt.hashpw(senha.encode('utf-8'), bcrypt.gensalt())
 
+    # ===== Inserção no banco de dados =====
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        # Verificar se o email já está cadastrado
+        # Verifica se o email já está cadastrado
         cursor.execute("SELECT * FROM usuarios WHERE email = %s", (email,))
         if cursor.fetchone():
             return jsonify({"error": "Email já cadastrado!"}), 400
 
-        # Inserir novo usuário
+        # Insere o novo usuário
         cursor.execute(
-            "INSERT INTO usuarios (nome, email, telefone, tipo_usuario, senha, cargo) "
-            "VALUES (%s, %s, %s, %s, %s, %s)",
+            """
+            INSERT INTO usuarios (nome, email, telefone, tipo_usuario, senha, cargo)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            """,
             (nome, email, telefone, tipo_usuario, hashed_senha, cargo)
         )
         conn.commit()
+
         return jsonify({"message": "Usuário registrado com sucesso!"}), 201
 
     except mysql.connector.Error as err:

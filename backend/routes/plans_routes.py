@@ -3,10 +3,14 @@ from utils.db import get_db_connection
 from middlewares.auth import token_required, only_super_admin
 import json
 import datetime
-from utils.token import decode_token, generate_token, create_refresh_token
+from utils.token import decode_token, generate_token, create_refresh_token, generate_tokens
 import jwt
+import os 
 
 plans_bp = Blueprint('plans_bp', __name__)
+
+JWT_SECRET = os.getenv('JWT_SECRET', 'secretdoapp')
+JWT_ALGORITHM = os.getenv('JWT_ALGORITHM', 'HS256')
 
 @plans_bp.route('/api/plans', methods=['GET'])
 def get_plans():
@@ -100,53 +104,90 @@ def generate_and_store_token():
     responses:
       200:
         description: Token gerado e armazenado com sucesso
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+              example: "Token gerado com sucesso!"
+            token:
+              type: string
+              example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+            refresh_token:
+              type: string
+              example: "d3f9a2a9-09e3-4f6d-a89b-5b91f03dcff2"
       400:
         description: user_id ausente
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+              example: "user_id é obrigatório!"
       404:
         description: Plano do usuário não encontrado
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+              example: "Plano não encontrado!"
       500:
         description: Erro no banco de dados
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+              example: "Erro interno ao gerar token."
     """
-    data = request.get_json()
-    user_id = data.get('user_id')
-    cargo = data.get('cargo', 'Independente')
-
-    if not user_id:
-        return jsonify({"error": "user_id é obrigatório!"}), 400
-
-    tokens = generate_tokens(user_id, cargo)
-    access_token = tokens["access_token"]
-    refresh_token = tokens["refresh_token"]
-
-    conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-    cursor.execute("SELECT plano_id FROM usuarios_planos WHERE usuario_id = %s", (user_id,))
-    user_plan = cursor.fetchone()
-
-    if not user_plan:
-        return jsonify({"error": "Plano não encontrado!"}), 404
-
-    plano_id = user_plan['plano_id']
-
-    # Cálculo de expiração (7 dias)
-    expira_em = datetime.datetime.utcnow() + datetime.timedelta(days=7)
-
     try:
-        # Salvar refresh token em nova tabela
+        data = request.get_json()
+        if not data or 'user_id' not in data:
+            return jsonify({"error": "user_id é obrigatório!"}), 400
+        
+        user_id = data['user_id']
+        cargo = data.get('cargo', 'Independente')
+
+        tokens = generate_tokens(user_id, cargo)
+        access_token, refresh_token = tokens["access_token"], tokens["refresh_token"]
+
+        # Conectar ao banco
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+
+        # Verificar plano do usuário
+        cursor.execute("SELECT plano_id FROM usuarios_planos WHERE usuario_id = %s", (user_id,))
+        user_plan = cursor.fetchone()
+
+        if not user_plan:
+            return jsonify({"error": "Plano não encontrado!"}), 404
+
+        # Definir expiração (7 dias)
+        expira_em = datetime.datetime.utcnow() + datetime.timedelta(days=7)
+
+        # Salvar refresh token
+        cursor.execute("DELETE FROM refresh_tokens WHERE usuario_id = %s", (user_id,))
         cursor.execute(
             "INSERT INTO refresh_tokens (usuario_id, token, expira_em) VALUES (%s, %s, %s)",
-            (user_id, tokens["refresh_token"], expira_em)
+            (user_id, refresh_token, expira_em)
         )
         conn.commit()
-        conn.close()
+        
         return jsonify({
             "message": "Token gerado com sucesso!",
-            "token": token
+            "token": access_token,
+            "refresh_token": refresh_token
         }), 200
+
+    except KeyError as e:
+        return jsonify({"error": f"Campo obrigatório ausente: {str(e)}"}), 400
     except Exception as err:
         conn.rollback()
-        conn.close()
-        return jsonify({"error": str(err)}), 500
+        return jsonify({"error": "Erro interno ao gerar token."}), 500
+    finally:
+        if conn:
+            conn.close()
 
 @plans_bp.route('/api/superadmin/test', methods=['GET'])
 @token_required
@@ -239,17 +280,23 @@ def revoke_token():
         description: Token ausente
     """
     data = request.get_json()
-    token = data.get("token")
+    access_token = data.get("token")
 
-    if not token:
-        return jsonify({"error": "Token ausente!"}), 400
+    if not access_token:
+        return jsonify({"error": "Access token ausente!"}), 400
 
+    # Inserir o token na blacklist
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO token_blacklist (token) VALUES (%s)", (token,))
+    cursor.execute(
+        "INSERT INTO token_blacklist (token, invalidado_em) VALUES (%s, %s)",
+        (access_token, datetime.datetime.utcnow())
+    )
     conn.commit()
+    cursor.close()
+    conn.close()
 
-    return jsonify({"message": "Token revogado com sucesso!"}), 200
+    return jsonify({"message": "Access token revogado com sucesso!"}), 200
 
 @plans_bp.route('/api/admin/refresh-tokens', methods=['GET'])
 @token_required
@@ -305,14 +352,15 @@ def listar_refresh_tokens():
         base_query += " AND rt.revogado = %s"
         params.append(revogado_filter.lower() == 'true')
 
-    # Total count para paginação
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
+
+    # Total de resultados
     cursor.execute(f"SELECT COUNT(*) AS total {base_query}", params)
     total = cursor.fetchone()['total']
     total_pages = (total + limit - 1) // limit
 
-    # Query final paginada
+    # Resultados paginados
     cursor.execute(f"""
         SELECT rt.id, rt.token, rt.criado_em, rt.expira_em, rt.revogado,
                u.id as usuario_id, u.email
@@ -395,14 +443,17 @@ def revogar_refresh_token():
         description: Token ausente
     """
     data = request.get_json()
-    token = data.get("token")
+    refresh_token = data.get("refresh_token")
 
-    if not token:
-        return jsonify({"error": "Token ausente!"}), 400
+    if not refresh_token:
+        return jsonify({"error": "Refresh token ausente!"}), 400
 
+    # Atualizar o status do refresh token
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("UPDATE refresh_tokens SET revogado = TRUE WHERE token = %s", (token,))
+    cursor.execute("UPDATE refresh_tokens SET revogado = TRUE WHERE token = %s", (refresh_token,))
     conn.commit()
+    cursor.close()
+    conn.close()
 
     return jsonify({"message": "Refresh token revogado com sucesso!"}), 200

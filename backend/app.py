@@ -1,11 +1,20 @@
 from flask import Flask
 from flask_cors import CORS
 from routes.auth_routes import auth_bp
+from dotenv import load_dotenv
+import os
 from routes.plans_routes import plans_bp
 from flasgger import Swagger
 
 app = Flask(__name__)
 CORS(app)  # Permite CORS para a aplicação (acesso de diferentes domínios)
+
+# Carregar variáveis do .env
+load_dotenv()
+
+# Acessar variáveis
+JWT_SECRET = os.getenv('JWT_SECRET')
+BASE_URL = os.getenv('BASE_URL')
 
 # Configuração do Swagger
 swagger_config = {

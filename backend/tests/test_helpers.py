@@ -3,43 +3,66 @@ import os
 import pytest
 from unittest.mock import MagicMock
 
-# Adiciona o diretório 'scripts' ao sys.path, se necessário
+# Garante que os módulos da pasta "scripts" sejam encontrados
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'scripts')))
 
-from scripts.ExtracaoAPI import remover_linha_checker, obter_cpfs_da_aba_checker  # Importando corretamente da pasta 'scripts'
+# Importa as funções responsáveis por manipular a aba "Checker"
+from scripts.ExtracaoAPI import remover_linha_checker, obter_cpfs_da_aba_checker
 
-# Fixture para mockar a aba "Checker"
+# =============================
+# FIXTURE: MOCK DO GOOGLE SHEETS
+# =============================
+
 @pytest.fixture
 def mock_sheet_checker():
+    """
+    Retorna um mock que simula a aba 'Checker' do Google Sheets,
+    usada para armazenar a fila de CPFs a serem processados.
+    """
     return MagicMock()
 
-# Testa a remoção de um CPF na aba "Checker"
+# =============================
+# TESTE: REMOVER CPF DA ABA CHECKER
+# =============================
+
 def test_remover_linha_checker(mock_sheet_checker):
-    # Mock para retornar CPFs da aba
+    """
+    Testa se a função remove corretamente o CPF da aba 'Checker'.
+
+    Simula a planilha com duas linhas de CPF após o cabeçalho.
+    Verifica se a função detecta corretamente o CPF alvo e chama delete_rows com a linha correspondente.
+    """
     mock_sheet_checker.get_all_values.return_value = [
-        ["CPF", "Status"],
-        ["12345678901", "Pendentes"],
-        ["10987654321", "Pendentes"]
+        ["CPF"],                 # Cabeçalho (linha 1)
+        ["12345678901"],         # Linha 2 (deve ser removida)
+        ["10987654321"]          # Linha 3
     ]
-    
-    # Chama a função para remover o CPF
+
+    # Chama a função para remover o CPF "12345678901"
     remover_linha_checker(mock_sheet_checker, "12345678901")
 
-    # Verifica se a função delete_rows foi chamada com o índice correto
+    # A linha 2 deve ser removida (índice 2 no Google Sheets)
     mock_sheet_checker.delete_rows.assert_called_once_with(2)
 
-# Testa a extração de CPFs válidos da aba "Checker"
+# =============================
+# TESTE: OBTER TODOS OS CPFs DA ABA CHECKER
+# =============================
+
 def test_obter_cpfs_da_aba_checker(mock_sheet_checker):
-    # Mock para retornar CPFs da aba
+    """
+    Testa se a função extrai corretamente os CPFs da aba 'Checker'.
+
+    Simula a planilha com 3 CPFs, ignorando o cabeçalho.
+    Verifica se os valores extraídos correspondem à coluna única da planilha.
+    """
     mock_sheet_checker.get_all_values.return_value = [
-        ["CPF", "Status"],
-        ["12345678901", "Pendentes"],
-        ["invalid_cpf", "Pendentes"],
-        ["10987654321", "Pendentes"]
+        ["CPF"],                 # Cabeçalho
+        ["12345678901"],         # Linha 2
+        ["99988877766"],         # Linha 3
+        ["45612378900"]          # Linha 4
     ]
-    
-    # Chama a função para obter os CPFs
+
     cpfs = obter_cpfs_da_aba_checker(mock_sheet_checker)
 
-    # Verifica se os CPFs retornados estão corretos
-    assert cpfs == ["12345678901", "invalid_cpf", "10987654321"]
+    # Deve retornar apenas os CPFs como strings, sem o cabeçalho
+    assert cpfs == ["12345678901", "99988877766", "45612378900"]
