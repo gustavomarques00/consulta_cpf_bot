@@ -1,18 +1,19 @@
 from flask import Blueprint, jsonify, request
-from utils.db import get_db_connection
-from middlewares.auth import token_required, only_super_admin
+from core.db import get_db_connection
+from middlewares.auth_middleware import token_required, only_super_admin
 import json
 import datetime
-from utils.token import decode_token, generate_token, create_refresh_token, generate_tokens
+from utils.token import generate_token, create_refresh_token, generate_tokens
 import jwt
-import os 
+import os
 
-plans_bp = Blueprint('plans_bp', __name__)
+plans_bp = Blueprint("plans_bp", __name__)
 
-JWT_SECRET = os.getenv('JWT_SECRET', 'secretdoapp')
-JWT_ALGORITHM = os.getenv('JWT_ALGORITHM', 'HS256')
+JWT_SECRET = os.getenv("JWT_SECRET", "secretdoapp")
+JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 
-@plans_bp.route('/api/plans', methods=['GET'])
+
+@plans_bp.route("/api/plans", methods=["GET"])
 def get_plans():
     """
     Retorna a lista de todos os planos disponíveis.
@@ -33,10 +34,10 @@ def get_plans():
         cursor.execute("SELECT id, nome, preco, features FROM planos")
         plans = cursor.fetchall()
         for plan in plans:
-            if isinstance(plan['features'], str):
-                plan['features'] = json.loads(plan['features'])
-            elif not isinstance(plan['features'], list):
-                plan['features'] = []
+            if isinstance(plan["features"], str):
+                plan["features"] = json.loads(plan["features"])
+            elif not isinstance(plan["features"], list):
+                plan["features"] = []
         conn.close()
 
         if not plans:
@@ -46,7 +47,8 @@ def get_plans():
     except Exception as err:
         return jsonify({"error": str(err)}), 500
 
-@plans_bp.route('/api/user-plans', methods=['GET'])
+
+@plans_bp.route("/api/user-plans", methods=["GET"])
 @token_required
 def get_user_plan():
     """
@@ -67,12 +69,15 @@ def get_user_plan():
     user_id = request.user_id
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT p.id, p.nome, p.preco, p.features 
         FROM usuarios_planos up 
         JOIN planos p ON up.plano_id = p.id 
         WHERE up.usuario_id = %s
-    """, (user_id,))
+    """,
+        (user_id,),
+    )
     user_plan = cursor.fetchone()
     conn.close()
 
@@ -81,7 +86,8 @@ def get_user_plan():
 
     return jsonify(user_plan), 200
 
-@plans_bp.route('/api/generate-token', methods=['POST'])
+
+@plans_bp.route("/api/generate-token", methods=["POST"])
 def generate_and_store_token():
     """
     Gera e armazena um token JWT vinculado ao usuário e plano.
@@ -143,11 +149,11 @@ def generate_and_store_token():
     """
     try:
         data = request.get_json()
-        if not data or 'user_id' not in data:
+        if not data or "user_id" not in data:
             return jsonify({"error": "user_id é obrigatório!"}), 400
-        
-        user_id = data['user_id']
-        cargo = data.get('cargo', 'Independente')
+
+        user_id = data["user_id"]
+        cargo = data.get("cargo", "Independente")
 
         tokens = generate_tokens(user_id, cargo)
         access_token, refresh_token = tokens["access_token"], tokens["refresh_token"]
@@ -157,7 +163,9 @@ def generate_and_store_token():
         cursor = conn.cursor(dictionary=True)
 
         # Verificar plano do usuário
-        cursor.execute("SELECT plano_id FROM usuarios_planos WHERE usuario_id = %s", (user_id,))
+        cursor.execute(
+            "SELECT plano_id FROM usuarios_planos WHERE usuario_id = %s", (user_id,)
+        )
         user_plan = cursor.fetchone()
 
         if not user_plan:
@@ -170,15 +178,20 @@ def generate_and_store_token():
         cursor.execute("DELETE FROM refresh_tokens WHERE usuario_id = %s", (user_id,))
         cursor.execute(
             "INSERT INTO refresh_tokens (usuario_id, token, expira_em) VALUES (%s, %s, %s)",
-            (user_id, refresh_token, expira_em)
+            (user_id, refresh_token, expira_em),
         )
         conn.commit()
-        
-        return jsonify({
-            "message": "Token gerado com sucesso!",
-            "token": access_token,
-            "refresh_token": refresh_token
-        }), 200
+
+        return (
+            jsonify(
+                {
+                    "message": "Token gerado com sucesso!",
+                    "token": access_token,
+                    "refresh_token": refresh_token,
+                }
+            ),
+            200,
+        )
 
     except KeyError as e:
         return jsonify({"error": f"Campo obrigatório ausente: {str(e)}"}), 400
@@ -189,7 +202,8 @@ def generate_and_store_token():
         if conn:
             conn.close()
 
-@plans_bp.route('/api/superadmin/test', methods=['GET'])
+
+@plans_bp.route("/api/superadmin/test", methods=["GET"])
 @token_required
 @only_super_admin
 def test_superadmin():
@@ -210,7 +224,8 @@ def test_superadmin():
     """
     return jsonify({"message": f"Acesso liberado, Super Admin {request.user_id}!"})
 
-@plans_bp.route('/api/refresh-token', methods=['POST'])
+
+@plans_bp.route("/api/refresh-token", methods=["POST"])
 def refresh_token():
     """
     Gera um novo token de acesso com base no Refresh Token enviado via header.
@@ -235,14 +250,14 @@ def refresh_token():
       401:
         description: Refresh token ausente, expirado ou inválido
     """
-    refresh_token = request.headers.get('Refresh-Token')
+    refresh_token = request.headers.get("Refresh-Token")
     if not refresh_token:
         return jsonify({"error": "Refresh token ausente!"}), 401
 
     try:
         # Decodifica o refresh token
         data = jwt.decode(refresh_token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        user_id = data['user_id']
+        user_id = data["user_id"]
 
         # Gera novo token com 2 horas de validade
         novo_token = generate_token(user_id=user_id, cargo=data.get("cargo", "Usuario"))
@@ -254,7 +269,8 @@ def refresh_token():
     except jwt.InvalidTokenError:
         return jsonify({"error": "Refresh token inválido!"}), 401
 
-@plans_bp.route('/api/revoke-token', methods=['POST'])
+
+@plans_bp.route("/api/revoke-token", methods=["POST"])
 @token_required
 @only_super_admin
 def revoke_token():
@@ -290,7 +306,7 @@ def revoke_token():
     cursor = conn.cursor()
     cursor.execute(
         "INSERT INTO token_blacklist (token, invalidado_em) VALUES (%s, %s)",
-        (access_token, datetime.datetime.utcnow())
+        (access_token, datetime.datetime.utcnow()),
     )
     conn.commit()
     cursor.close()
@@ -298,7 +314,8 @@ def revoke_token():
 
     return jsonify({"message": "Access token revogado com sucesso!"}), 200
 
-@plans_bp.route('/api/admin/refresh-tokens', methods=['GET'])
+
+@plans_bp.route("/api/admin/refresh-tokens", methods=["GET"])
 @token_required
 @only_super_admin
 def listar_refresh_tokens():
@@ -330,10 +347,10 @@ def listar_refresh_tokens():
       200:
         description: Tokens paginados com total_pages
     """
-    page = int(request.args.get('page', 1))
-    limit = int(request.args.get('limit', 10))
-    email_filter = request.args.get('email')
-    revogado_filter = request.args.get('revogado')
+    page = int(request.args.get("page", 1))
+    limit = int(request.args.get("limit", 10))
+    email_filter = request.args.get("email")
+    revogado_filter = request.args.get("revogado")
 
     offset = (page - 1) * limit
 
@@ -347,38 +364,47 @@ def listar_refresh_tokens():
     if email_filter:
         base_query += " AND u.email LIKE %s"
         params.append(f"%{email_filter}%")
-    
-    if revogado_filter in ['true', 'false']:
+
+    if revogado_filter in ["true", "false"]:
         base_query += " AND rt.revogado = %s"
-        params.append(revogado_filter.lower() == 'true')
+        params.append(revogado_filter.lower() == "true")
 
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
     # Total de resultados
     cursor.execute(f"SELECT COUNT(*) AS total {base_query}", params)
-    total = cursor.fetchone()['total']
+    total = cursor.fetchone()["total"]
     total_pages = (total + limit - 1) // limit
 
     # Resultados paginados
-    cursor.execute(f"""
+    cursor.execute(
+        f"""
         SELECT rt.id, rt.token, rt.criado_em, rt.expira_em, rt.revogado,
                u.id as usuario_id, u.email
         {base_query}
         ORDER BY rt.criado_em DESC
         LIMIT %s OFFSET %s
-    """, (*params, limit, offset))
+    """,
+        (*params, limit, offset),
+    )
     tokens = cursor.fetchall()
 
-    return jsonify({
-        "page": page,
-        "limit": limit,
-        "total_pages": total_pages,
-        "total_results": total,
-        "data": tokens
-    }), 200
+    return (
+        jsonify(
+            {
+                "page": page,
+                "limit": limit,
+                "total_pages": total_pages,
+                "total_results": total,
+                "data": tokens,
+            }
+        ),
+        200,
+    )
 
-@plans_bp.route('/api/admin/token-blacklist', methods=['GET'])
+
+@plans_bp.route("/api/admin/token-blacklist", methods=["GET"])
 @token_required
 @only_super_admin
 def listar_tokens_revogados():
@@ -402,22 +428,26 @@ def listar_tokens_revogados():
       200:
         description: Lista paginada de tokens revogados
     """
-    page = int(request.args.get('page', 1))
-    limit = int(request.args.get('limit', 10))
+    page = int(request.args.get("page", 1))
+    limit = int(request.args.get("limit", 10))
     offset = (page - 1) * limit
 
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT id, token, invalidado_em
         FROM token_blacklist
         ORDER BY invalidado_em DESC
         LIMIT %s OFFSET %s
-    """, (limit, offset))
+    """,
+        (limit, offset),
+    )
     tokens = cursor.fetchall()
     return jsonify(tokens), 200
 
-@plans_bp.route('/api/admin/revoke-refresh-token', methods=['POST'])
+
+@plans_bp.route("/api/admin/revoke-refresh-token", methods=["POST"])
 @token_required
 @only_super_admin
 def revogar_refresh_token():
@@ -451,7 +481,9 @@ def revogar_refresh_token():
     # Atualizar o status do refresh token
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("UPDATE refresh_tokens SET revogado = TRUE WHERE token = %s", (refresh_token,))
+    cursor.execute(
+        "UPDATE refresh_tokens SET revogado = TRUE WHERE token = %s", (refresh_token,)
+    )
     conn.commit()
     cursor.close()
     conn.close()

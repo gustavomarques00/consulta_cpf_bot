@@ -1,14 +1,19 @@
 from flask import Blueprint, request, jsonify
-from utils.db import get_db_connection
-from utils.token import generate_token, create_refresh_token
-from utils.validators import is_valid_email, is_valid_password, is_valid_phone, valid_user_types
+from core.db import get_db_connection
+from utils.validators import (
+    is_valid_email,
+    is_valid_password,
+    is_valid_phone,
+    valid_user_types,
+)
 import bcrypt
 import mysql.connector
 
 # Blueprint de autenticação
-auth_bp = Blueprint('auth_bp', __name__)
+auth_bp = Blueprint("auth_bp", __name__)
 
-@auth_bp.route('/register', methods=['POST'])
+
+@auth_bp.route("/register", methods=["POST"])
 def register():
     """
     Registra um novo usuário no sistema.
@@ -83,16 +88,23 @@ def register():
     """
     data = request.get_json()
 
-    nome = data.get('nome')
-    email = data.get('email')
-    telefone = data.get('telefone')
-    tipo_usuario = data.get('tipoUsuario')
-    senha = data.get('senha')
-    confirmar_senha = data.get('confirmarSenha')
-    cargo = data.get('cargo', 'Usuario')
+    nome = data.get("nome")
+    email = data.get("email")
+    telefone = data.get("telefone")
+    tipo_usuario = data.get("tipoUsuario")
+    senha = data.get("senha")
+    confirmar_senha = data.get("confirmarSenha")
+    cargo = data.get("cargo", "Usuario")
 
     # ===== Validações dos dados recebidos =====
-    if not nome or not email or not telefone or not tipo_usuario or not senha or not confirmar_senha:
+    if (
+        not nome
+        or not email
+        or not telefone
+        or not tipo_usuario
+        or not senha
+        or not confirmar_senha
+    ):
         return jsonify({"error": "Todos os campos são obrigatórios!"}), 400
 
     if senha != confirmar_senha:
@@ -108,12 +120,17 @@ def register():
         return jsonify({"error": "Senha fraca. Use uma mais segura!"}), 400
 
     if tipo_usuario not in valid_user_types:
-        return jsonify({
-            "error": f"Tipo de usuário inválido. Válidos: {', '.join(valid_user_types)}"
-        }), 400
+        return (
+            jsonify(
+                {
+                    "error": f"Tipo de usuário inválido. Válidos: {', '.join(valid_user_types)}"
+                }
+            ),
+            400,
+        )
 
     # Criptografar a senha com bcrypt
-    hashed_senha = bcrypt.hashpw(senha.encode('utf-8'), bcrypt.gensalt())
+    hashed_senha = bcrypt.hashpw(senha.encode("utf-8"), bcrypt.gensalt())
 
     # ===== Inserção no banco de dados =====
     try:
@@ -131,7 +148,7 @@ def register():
             INSERT INTO usuarios (nome, email, telefone, tipo_usuario, senha, cargo)
             VALUES (%s, %s, %s, %s, %s, %s)
             """,
-            (nome, email, telefone, tipo_usuario, hashed_senha, cargo)
+            (nome, email, telefone, tipo_usuario, hashed_senha, cargo),
         )
         conn.commit()
 

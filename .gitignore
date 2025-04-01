@@ -3,10 +3,9 @@
 # ==============================
 .env
 .env.*
-credenciais.json
+shared/credentials/credenciais.json
 session_name.session*
 orientacao_bot.session
-config.py
 
 # ==============================
 # 🐍 BACKEND - Python / Flask
@@ -62,3 +61,8 @@ Thumbs.db
 # ==============================
 logs/
 tmp/
+shared/data/request_*.txt
+shared/data/request_log.json
+
+# ⚠️ Se quiser ignorar scripts temporários:
+scripts/clean_project.py

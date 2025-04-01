@@ -12,12 +12,14 @@ from utils.token import generate_tokens  # ajuste o path se estiver diferente
 load_dotenv()
 BASE_URL = os.getenv("BASE_URL", "http://127.0.0.1:5000")
 
+
 @pytest.fixture(scope="module")
 def headers():
     """
     Retorna headers padrão para requisições JSON.
     """
     return {"Content-Type": "application/json"}
+
 
 @pytest.fixture(scope="module")
 def refresh_token(headers):
@@ -33,10 +35,11 @@ def refresh_token(headers):
     response = requests.post(
         f"{BASE_URL}/api/generate-token",
         json={"user_id": user_id, "cargo": cargo},
-        headers=headers
+        headers=headers,
     )
     assert response.status_code == 200, f"Falha ao gerar refresh_token: {response.text}"
     return response.json().get("refresh_token")
+
 
 @pytest.fixture(scope="module")
 def token(headers):
@@ -50,13 +53,17 @@ def token(headers):
     assert cargo, "Variável de ambiente TEST_USER_CARGO não configurada"
 
     payload = {"user_id": user_id, "cargo": cargo}
-    response = requests.post(f"{BASE_URL}/api/generate-token", json=payload, headers=headers)
+    response = requests.post(
+        f"{BASE_URL}/api/generate-token", json=payload, headers=headers
+    )
     assert response.status_code == 200, f"Falha ao gerar token: {response.text}"
     return response.json().get("token")
+
 
 # ===================
 # TESTES DE ROTAS API
 # ===================
+
 
 def test_get_plans(headers):
     """
@@ -67,6 +74,7 @@ def test_get_plans(headers):
     assert response.status_code == 200
     data = response.json()
     assert isinstance(data, list) and len(data) > 0
+
 
 def test_get_user_plan(token):
     """
@@ -79,6 +87,7 @@ def test_get_user_plan(token):
     data = response.json()
     assert "id" in data and "nome" in data
 
+
 def test_super_admin_access(token):
     """
     GET /api/superadmin/test
@@ -89,6 +98,7 @@ def test_super_admin_access(token):
     assert response.status_code == 200
     assert "Super Admin" in response.json().get("message", "")
 
+
 def test_protected_route_without_token():
     """
     GET /api/user-plans
@@ -97,6 +107,7 @@ def test_protected_route_without_token():
     response = requests.get(f"{BASE_URL}/api/user-plans")
     assert response.status_code == 401
     assert "Token" in response.json().get("error", "")
+
 
 def test_protected_route_with_invalid_token():
     """
@@ -108,6 +119,7 @@ def test_protected_route_with_invalid_token():
     assert response.status_code == 401
     assert "inválido" in response.json().get("error", "").lower()
 
+
 def test_refresh_token(headers):
     """
     POST /api/refresh-token
@@ -116,16 +128,19 @@ def test_refresh_token(headers):
     response = requests.post(
         f"{BASE_URL}/api/generate-token",
         json={"user_id": 4, "cargo": "ADM"},
-        headers=headers
+        headers=headers,
     )
     assert response.status_code == 200
     refresh_token = response.json().get("refresh_token")
     assert refresh_token
 
     refresh_headers = {"Refresh-Token": refresh_token}
-    refresh_resp = requests.post(f"{BASE_URL}/api/refresh-token", headers=refresh_headers)
+    refresh_resp = requests.post(
+        f"{BASE_URL}/api/refresh-token", headers=refresh_headers
+    )
     assert refresh_resp.status_code == 200
     assert "token" in refresh_resp.json()
+
 
 def test_refresh_token_renova_token(refresh_token):
     """
@@ -137,20 +152,21 @@ def test_refresh_token_renova_token(refresh_token):
     assert response.status_code == 200
     assert "token" in response.json()
 
+
 def test_revoke_token(token):
     """
     POST /api/revoke-token
     Revoga um token de acesso (access_token) válido.
     """
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json"
-    }
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
     payload = {"token": token}
 
-    response = requests.post(f"{BASE_URL}/api/revoke-token", json=payload, headers=headers)
+    response = requests.post(
+        f"{BASE_URL}/api/revoke-token", json=payload, headers=headers
+    )
     assert response.status_code == 200
     assert "revogado" in response.json().get("message", "").lower()
+
 
 def test_revoke_refresh_token(headers):
     """
@@ -161,7 +177,7 @@ def test_revoke_refresh_token(headers):
     response = requests.post(
         f"{BASE_URL}/api/generate-token",
         json={"user_id": 4, "cargo": "ADM"},
-        headers=headers
+        headers=headers,
     )
     assert response.status_code == 200, f"Erro ao gerar tokens: {response.text}"
     refresh_token = response.json()["refresh_token"]
@@ -170,16 +186,23 @@ def test_revoke_refresh_token(headers):
     # Define os headers de autenticação
     admin_headers = {
         "Authorization": f"Bearer {access_token}",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
     }
 
     # Define o payload para revogação
     payload = {"refresh_token": refresh_token}  # Corrigido para definir o payload
 
     # Faz a requisição para revogar o refresh_token
-    revoke_resp = requests.post(f"{BASE_URL}/api/admin/revoke-refresh-token", json=payload, headers=admin_headers)
-    assert revoke_resp.status_code == 200, f"Erro ao revogar refresh_token: {revoke_resp.text}"
+    revoke_resp = requests.post(
+        f"{BASE_URL}/api/admin/revoke-refresh-token",
+        json=payload,
+        headers=admin_headers,
+    )
+    assert (
+        revoke_resp.status_code == 200
+    ), f"Erro ao revogar refresh_token: {revoke_resp.text}"
     assert "revogado" in revoke_resp.json().get("message", "").lower()
+
 
 def test_list_refresh_tokens_paginated(headers):
     """
@@ -189,19 +212,16 @@ def test_list_refresh_tokens_paginated(headers):
     response = requests.post(
         f"{BASE_URL}/api/generate-token",
         json={"user_id": 4, "cargo": "ADM"},
-        headers=headers
+        headers=headers,
     )
     token = response.json().get("token")
     assert token
 
     headers_auth = {"Authorization": f"Bearer {token}"}
-    params = {
-        "page": 1,
-        "limit": 5,
-        "email": "admin",
-        "revogado": "false"
-    }
-    response = requests.get(f"{BASE_URL}/api/admin/refresh-tokens", headers=headers_auth, params=params)
+    params = {"page": 1, "limit": 5, "email": "admin", "revogado": "false"}
+    response = requests.get(
+        f"{BASE_URL}/api/admin/refresh-tokens", headers=headers_auth, params=params
+    )
     assert response.status_code == 200
     data = response.json()
     assert "data" in data
