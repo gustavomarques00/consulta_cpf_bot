@@ -1,6 +1,7 @@
 import requests
 from core.config import Config
 
+
 class BrsmmService:
     def __init__(self):
         self.api_url = Config.BRSMM_API_URL
@@ -23,18 +24,16 @@ class BrsmmService:
             "action": "add",
             "service": service_id,
             "link": link,
-            "quantity": quantity
+            "quantity": quantity,
         }
         return self._post(payload)
 
     def get_order_status(self, order_id: int):
-        return self._post({
-            "action": "status",
-            "order": order_id
-        })
+        return self._post({"action": "status", "order": order_id})
 
     def get_balance(self):
         return self._post({"action": "balance"})
+
 
 # Exemplo de uso isolado
 if __name__ == "__main__":
@@ -51,9 +50,7 @@ if __name__ == "__main__":
     print("\n🚀 Criando pedido de tráfego...")
     service_id = services[0]["service"]
     response = api.add_order(
-        link="https://example.com",
-        service_id=service_id,
-        quantity=100
+        link="https://example.com", service_id=service_id, quantity=100
     )
 
     if "order" in response:

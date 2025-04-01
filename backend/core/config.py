@@ -31,6 +31,12 @@ class Config:
     TELEGRAM_USER_ID = os.getenv("TELEGRAM_USER_ID")
 
     # ===============================
+    # 🔗 Integração com BRSMM
+    # ===============================
+    BRSMM_API_KEY = os.getenv("BRSMM_API_KEY")
+    BRSMM_API_URL = os.getenv("BRSMM_API_URL")
+
+    # ===============================
     # 📊 Google Sheets
     # ===============================
     DEFAULT_CREDENTIALS_PATH = os.path.join(

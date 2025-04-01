@@ -15,8 +15,8 @@ from services.google_sheets_service import (
 from services.extracao_api import consultar_api, tratar_valor
 from utils.request_tracker import mostrar_resumo_requisicoes
 from backend.core.config import Config
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
+import gspread  # type: ignore
+from oauth2client.service_account import ServiceAccountCredentials  # type: ignore
 from utils.emoji import EMOJI
 
 
