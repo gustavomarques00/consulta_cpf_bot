@@ -5,10 +5,12 @@ PyJWT==2.8.0
 # 🌐 Web Framework
 flask==2.3.3
 flask-cors==4.0.0
+flasgger==0.9.7.1  # 📚 Documentação Swagger
 
 # 📦 Utilidades e Configuração
 python-dotenv==1.0.1
 requests==2.31.0
+black==24.3.0  # 🎨 Formatação automática de código
 
 # 📊 Integração com Google Sheets
 gspread==5.7.2
@@ -17,8 +19,14 @@ oauth2client==4.1.3
 # 🛠️ Banco de Dados
 mysql-connector-python==8.3.0
 
-# 🤖 Automatização com Telegram (se estiver usando)
+# 🤖 Automatização com Telegram (opcional)
 telethon==1.24.0
 
 # 🧪 Testes
 pytest==8.1.1
+
+# ✅ Pré-commit (opcional, para hooks)
+pre-commit==3.7.0
+
+# 📦 Outros
+git-changelog==2.4.0
