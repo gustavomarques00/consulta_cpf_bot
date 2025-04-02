@@ -7,6 +7,7 @@ from core.db import get_db_connection
 load_dotenv()
 BASE_URL = os.getenv("BASE_URL", "http://127.0.0.1:5000")
 
+
 def test_enviar_pedido_salva_em_banco(token):
     """
     ✅ Testa o envio de tráfego via API e verifica se foi registrado no banco.
@@ -27,9 +28,7 @@ def test_enviar_pedido_salva_em_banco(token):
         "url": test_url,
         "quantidade": quantidade,
     }
-    resp = requests.post(
-        f"{BASE_URL}/api/trafego/send", json=payload, headers=headers
-    )
+    resp = requests.post(f"{BASE_URL}/api/trafego/send", json=payload, headers=headers)
 
     assert resp.status_code in [200, 400]
 
@@ -41,7 +40,9 @@ def test_enviar_pedido_salva_em_banco(token):
         order_id = data["order_id"]
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT * FROM trafego_pedidos WHERE brsmm_order_id = %s", (order_id,))
+        cursor.execute(
+            "SELECT * FROM trafego_pedidos WHERE brsmm_order_id = %s", (order_id,)
+        )
         result = cursor.fetchone()
         cursor.close()
         conn.close()

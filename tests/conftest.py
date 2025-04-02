@@ -55,6 +55,8 @@ def refresh_token(headers):
         json={"user_id": int(user_id), "cargo": cargo},
         headers=headers,
     )
-    assert response.status_code == 200, f"❌ Erro ao gerar refresh_token: {response.text}"
+    assert (
+        response.status_code == 200
+    ), f"❌ Erro ao gerar refresh_token: {response.text}"
 
     return response.json()["refresh_token"]

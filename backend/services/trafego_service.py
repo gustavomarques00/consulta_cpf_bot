@@ -1,6 +1,7 @@
 from core.db import get_db_connection
 from services.brsmm_service import BrsmmService
 
+
 class TrafegoService:
     def __init__(self):
         self.api = BrsmmService()

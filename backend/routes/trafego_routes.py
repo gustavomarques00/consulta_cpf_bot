@@ -14,28 +14,30 @@ trafego_bp = Blueprint("trafego", __name__, url_prefix="/api/trafego")
 
 @trafego_bp.route("/historico", methods=["GET"])
 @token_required
-@swag_from({
-    "tags": ["Tráfego"],
-    "summary": "Consultar histórico de envios de tráfego",
-    "parameters": [
-        {
-            "name": "data",
-            "in": "query",
-            "description": "Data no formato YYYY-MM-DD",
-            "schema": {"type": "string"},
+@swag_from(
+    {
+        "tags": ["Tráfego"],
+        "summary": "Consultar histórico de envios de tráfego",
+        "parameters": [
+            {
+                "name": "data",
+                "in": "query",
+                "description": "Data no formato YYYY-MM-DD",
+                "schema": {"type": "string"},
+            },
+            {
+                "name": "status",
+                "in": "query",
+                "description": "Filtro por status: sucesso ou erro",
+                "schema": {"type": "string"},
+            },
+        ],
+        "responses": {
+            200: {"description": "Histórico retornado com sucesso"},
+            404: {"description": "Log não encontrado"},
         },
-        {
-            "name": "status",
-            "in": "query",
-            "description": "Filtro por status: sucesso ou erro",
-            "schema": {"type": "string"},
-        },
-    ],
-    "responses": {
-        200: {"description": "Histórico retornado com sucesso"},
-        404: {"description": "Log não encontrado"},
-    },
-})
+    }
+)
 def consultar_historico():
     data_param = request.args.get("data")
     status_param = request.args.get("status")
@@ -48,7 +50,10 @@ def consultar_historico():
         try:
             datetime.strptime(data_param, "%Y-%m-%d")
         except ValueError:
-            return jsonify({"error": "Data inválida. Formato esperado: YYYY-MM-DD"}), 400
+            return (
+                jsonify({"error": "Data inválida. Formato esperado: YYYY-MM-DD"}),
+                400,
+            )
 
         log_path = os.path.join(log_dir, f"brsmm_{data_param}.log")
         if not os.path.exists(log_path):
@@ -84,22 +89,24 @@ def consultar_historico():
 
 @trafego_bp.route("/exportar", methods=["GET"])
 @token_required
-@swag_from({
-    "tags": ["Tráfego"],
-    "summary": "Exportar log diário para CSV",
-    "parameters": [
-        {
-            "name": "data",
-            "in": "query",
-            "required": True,
-            "description": "Data no formato YYYY-MM-DD",
-        }
-    ],
-    "responses": {
-        200: {"description": "Arquivo CSV gerado com sucesso"},
-        404: {"description": "Log não encontrado"},
-    },
-})
+@swag_from(
+    {
+        "tags": ["Tráfego"],
+        "summary": "Exportar log diário para CSV",
+        "parameters": [
+            {
+                "name": "data",
+                "in": "query",
+                "required": True,
+                "description": "Data no formato YYYY-MM-DD",
+            }
+        ],
+        "responses": {
+            200: {"description": "Arquivo CSV gerado com sucesso"},
+            404: {"description": "Log não encontrado"},
+        },
+    }
+)
 def exportar_csv():
     data_param = request.args.get("data")
     if not data_param:
@@ -133,30 +140,32 @@ def exportar_csv():
 
 @trafego_bp.route("/send", methods=["POST"])
 @token_required
-@swag_from({
-    "tags": ["Tráfego"],
-    "summary": "Enviar tráfego manualmente para uma URL",
-    "requestBody": {
-        "required": True,
-        "content": {
-            "application/json": {
-                "schema": {
-                    "type": "object",
-                    "properties": {
-                        "service_id": {"type": "integer"},
-                        "url": {"type": "string"},
-                        "quantidade": {"type": "integer"},
-                    },
-                    "required": ["service_id", "url", "quantidade"],
+@swag_from(
+    {
+        "tags": ["Tráfego"],
+        "summary": "Enviar tráfego manualmente para uma URL",
+        "requestBody": {
+            "required": True,
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "service_id": {"type": "integer"},
+                            "url": {"type": "string"},
+                            "quantidade": {"type": "integer"},
+                        },
+                        "required": ["service_id", "url", "quantidade"],
+                    }
                 }
-            }
+            },
         },
-    },
-    "responses": {
-        200: {"description": "Tráfego enviado com sucesso"},
-        400: {"description": "Erro de validação ou requisição"},
-    },
-})
+        "responses": {
+            200: {"description": "Tráfego enviado com sucesso"},
+            400: {"description": "Erro de validação ou requisição"},
+        },
+    }
+)
 def enviar_trafego_manual():
     from services.brsmm_service import BrsmmService
 
@@ -166,7 +175,10 @@ def enviar_trafego_manual():
     quantidade = data.get("quantidade")
 
     if not all([service_id, url, quantidade]):
-        return jsonify({"error": "Campos obrigatórios: service_id, url, quantidade"}), 400
+        return (
+            jsonify({"error": "Campos obrigatórios: service_id, url, quantidade"}),
+            400,
+        )
 
     if not (50 <= quantidade <= 10000):
         return jsonify({"error": "Quantidade deve estar entre 50 e 10000"}), 400
@@ -179,7 +191,15 @@ def enviar_trafego_manual():
     response = api.add_order(link=url, service_id=service_id, quantity=quantidade)
 
     if "order" in response:
-        return jsonify({"message": "✅ Pedido enviado com sucesso", "order_id": response["order"]}), 200
+        return (
+            jsonify(
+                {
+                    "message": "✅ Pedido enviado com sucesso",
+                    "order_id": response["order"],
+                }
+            ),
+            200,
+        )
     else:
         return jsonify({"error": response}), 400
 
@@ -228,7 +248,10 @@ def meus_pedidos():
         cursor = conn.cursor(dictionary=True)
 
         # Contar o total de registros que atendem aos filtros (para calcular a paginação)
-        cursor.execute(f"SELECT COUNT(*) as total FROM trafego_pedidos WHERE {where_clause}", params)
+        cursor.execute(
+            f"SELECT COUNT(*) as total FROM trafego_pedidos WHERE {where_clause}",
+            params,
+        )
         total = cursor.fetchone()["total"]
         total_pages = (total + limit - 1) // limit  # Cálculo do total de páginas
 
@@ -247,13 +270,18 @@ def meus_pedidos():
         cursor.close()
         conn.close()
 
-        return jsonify({
-            "page": page,
-            "limit": limit,
-            "total_pages": total_pages,
-            "total_results": total,
-            "data": pedidos,
-        }), 200
+        return (
+            jsonify(
+                {
+                    "page": page,
+                    "limit": limit,
+                    "total_pages": total_pages,
+                    "total_results": total,
+                    "data": pedidos,
+                }
+            ),
+            200,
+        )
 
     except Exception as e:
         return jsonify({"error": f"Erro ao consultar pedidos: {str(e)}"}), 500
@@ -269,7 +297,9 @@ def status_pedido(order_id):
         # Verificando se o pedido existe para o user_id e order_id
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
-        print(f"User ID do token: {request.user_id}")  # Para garantir que o valor está correto
+        print(
+            f"User ID do token: {request.user_id}"
+        )  # Para garantir que o valor está correto
 
         cursor.execute(
             "SELECT * FROM trafego_pedidos WHERE brsmm_order_id = %s AND user_id = %s",
@@ -280,17 +310,26 @@ def status_pedido(order_id):
         if not pedido:
             cursor.close()
             conn.close()
-            return jsonify({"error": "Pedido não encontrado para o usuário autenticado"}), 404
+            return (
+                jsonify({"error": "Pedido não encontrado para o usuário autenticado"}),
+                404,
+            )
 
         cursor.close()
         conn.close()
 
-        return jsonify({"status": pedido["status"], "data_criado_em": pedido["criado_em"]}), 200
+        return (
+            jsonify(
+                {"status": pedido["status"], "data_criado_em": pedido["criado_em"]}
+            ),
+            200,
+        )
 
     except Exception as e:
         # Log para captura do erro
         print(f"Erro ao consultar status do pedido: {str(e)}")
         return jsonify({"error": f"Erro ao consultar status do pedido: {str(e)}"}), 500
+
 
 @trafego_bp.route("/pedidos/status", methods=["GET"])
 @token_required
@@ -312,34 +351,42 @@ def status_multiplos_pedidos():
 
         cursor.execute(
             f"SELECT * FROM trafego_pedidos WHERE brsmm_order_id IN ({','.join(['%s'] * len(order_ids))}) AND user_id = %s",
-            tuple(order_ids) + (request.user_id,)
+            tuple(order_ids) + (request.user_id,),
         )
         pedidos = cursor.fetchall()
 
-        print(f"Pedidos encontrados: {pedidos}")  # Log para ver quais pedidos foram encontrados
+        print(
+            f"Pedidos encontrados: {pedidos}"
+        )  # Log para ver quais pedidos foram encontrados
 
         # Verifica se algum dos pedidos solicitados não foi encontrado
         if len(pedidos) != len(order_ids):
             cursor.close()
             conn.close()
-            return jsonify({"error": "Nenhum pedido encontrado para os IDs fornecidos"}), 404
+            return (
+                jsonify({"error": "Nenhum pedido encontrado para os IDs fornecidos"}),
+                404,
+            )
 
         cursor.close()
         conn.close()
 
-        return jsonify([{
-            "order_id": pedido["brsmm_order_id"],
-            "status": pedido["status"]
-        } for pedido in pedidos]), 200
+        return (
+            jsonify(
+                [
+                    {"order_id": pedido["brsmm_order_id"], "status": pedido["status"]}
+                    for pedido in pedidos
+                ]
+            ),
+            200,
+        )
 
     except Exception as e:
         # Log para captura do erro
         print(f"Erro ao consultar status de múltiplos pedidos: {str(e)}")
-        return jsonify({"error": f"Erro ao consultar status de múltiplos pedidos: {str(e)}"}), 500
-
-
-
-
-
-
-
+        return (
+            jsonify(
+                {"error": f"Erro ao consultar status de múltiplos pedidos: {str(e)}"}
+            ),
+            500,
+        )

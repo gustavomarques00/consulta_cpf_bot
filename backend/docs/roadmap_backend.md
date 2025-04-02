@@ -13,6 +13,10 @@
 - [x] Exportação de envios para CSV
 - [x] Swagger documentando todas as rotas
 - [x] Testes automatizados com pytest (100% cobrindo tráfego, auth, tokens)
+- [x] Ajustes nas rotas de tráfego para garantir que pedidos sejam validados corretamente
+- [x] Correção na lógica de retorno para pedidos não encontrados
+- [x] Atualização nos testes para validar comportamento correto de múltiplos pedidos
+- [x] Alterações nas mensagens de erro para refletir a falta de pedidos em múltiplos IDs
 
 ---
 

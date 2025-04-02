@@ -9,16 +9,22 @@ api = BrsmmService()
 
 @brsmm_bp.route("/services", methods=["GET"])
 @token_required
-@swag_from({
-    "tags": ["BRSMM"],
-    "summary": "Listar serviços da API BRSMM",
-    "responses": {
-        200: {
-            "description": "Lista de serviços disponíveis",
-            "examples": {"application/json": [{"service": 1, "name": "Followers", "rate": "0.90"}]},
-        }
-    },
-})
+@swag_from(
+    {
+        "tags": ["BRSMM"],
+        "summary": "Listar serviços da API BRSMM",
+        "responses": {
+            200: {
+                "description": "Lista de serviços disponíveis",
+                "examples": {
+                    "application/json": [
+                        {"service": 1, "name": "Followers", "rate": "0.90"}
+                    ]
+                },
+            }
+        },
+    }
+)
 def listar_servicos():
     try:
         services = api.get_services()
@@ -29,30 +35,32 @@ def listar_servicos():
 
 @brsmm_bp.route("/order", methods=["POST"])
 @token_required
-@swag_from({
-    "tags": ["BRSMM"],
-    "summary": "Criar novo pedido de tráfego",
-    "parameters": [
-        {
-            "name": "body",
-            "in": "body",
-            "required": True,
-            "schema": {
-                "type": "object",
-                "properties": {
-                    "link": {"type": "string"},
-                    "service_id": {"type": "integer"},
-                    "quantity": {"type": "integer"},
+@swag_from(
+    {
+        "tags": ["BRSMM"],
+        "summary": "Criar novo pedido de tráfego",
+        "parameters": [
+            {
+                "name": "body",
+                "in": "body",
+                "required": True,
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "link": {"type": "string"},
+                        "service_id": {"type": "integer"},
+                        "quantity": {"type": "integer"},
+                    },
+                    "required": ["link", "service_id", "quantity"],
                 },
-                "required": ["link", "service_id", "quantity"],
-            },
-        }
-    ],
-    "responses": {
-        200: {"description": "Pedido criado"},
-        400: {"description": "Erro de validação"},
-    },
-})
+            }
+        ],
+        "responses": {
+            200: {"description": "Pedido criado"},
+            400: {"description": "Erro de validação"},
+        },
+    }
+)
 def criar_pedido():
     data = request.get_json()
     required_fields = ["link", "service_id", "quantity"]
@@ -72,17 +80,23 @@ def criar_pedido():
 
 @brsmm_bp.route("/status/<int:order_id>", methods=["GET"])
 @token_required
-@swag_from({
-    "tags": ["BRSMM"],
-    "summary": "Ver status de um pedido",
-    "parameters": [{"name": "order_id", "in": "path", "required": True, "type": "integer"}],
-    "responses": {
-        200: {
-            "description": "Status do pedido",
-            "examples": {"application/json": {"status": "In progress", "remains": "10"}},
-        }
-    },
-})
+@swag_from(
+    {
+        "tags": ["BRSMM"],
+        "summary": "Ver status de um pedido",
+        "parameters": [
+            {"name": "order_id", "in": "path", "required": True, "type": "integer"}
+        ],
+        "responses": {
+            200: {
+                "description": "Status do pedido",
+                "examples": {
+                    "application/json": {"status": "In progress", "remains": "10"}
+                },
+            }
+        },
+    }
+)
 def consultar_status(order_id):
     try:
         response = api.get_order_status(order_id)
@@ -93,16 +107,20 @@ def consultar_status(order_id):
 
 @brsmm_bp.route("/balance", methods=["GET"])
 @token_required
-@swag_from({
-    "tags": ["BRSMM"],
-    "summary": "Consultar saldo BRSMM",
-    "responses": {
-        200: {
-            "description": "Saldo da conta",
-            "examples": {"application/json": {"balance": "85.10", "currency": "USD"}},
-        }
-    },
-})
+@swag_from(
+    {
+        "tags": ["BRSMM"],
+        "summary": "Consultar saldo BRSMM",
+        "responses": {
+            200: {
+                "description": "Saldo da conta",
+                "examples": {
+                    "application/json": {"balance": "85.10", "currency": "USD"}
+                },
+            }
+        },
+    }
+)
 def consultar_saldo():
     try:
         return jsonify(api.get_balance()), 200

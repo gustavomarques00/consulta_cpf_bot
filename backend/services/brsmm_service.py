@@ -2,6 +2,7 @@ import requests
 from core.config import Config
 from core.db import get_db_connection
 
+
 class BrsmmService:
     def __init__(self):
         self.api_url = Config.BRSMM_API_URL
@@ -33,16 +34,10 @@ class BrsmmService:
 
     def get_balance(self):
         return self._post({"action": "balance"})
-    
+
     @staticmethod
     def registrar_pedido_usuario(
-        user_id,
-        pedido_api,
-        service_id,
-        url,
-        quantidade,
-        preco_unitario,
-        preco_total
+        user_id, pedido_api, service_id, url, quantidade, preco_unitario, preco_total
     ):
         """
         Registra o pedido no banco de dados, associando ao usuário autenticado.
