@@ -6,8 +6,6 @@ from utils.request_tracker import registrar_requisicao
 
 
 def consultar_api(cpf, Config, attempt=1, sheet_checker=None, reagendar_func=None):
-    from services.google_sheets_service import reagendar_cpf_checker
-
     if not registrar_requisicao:
         return None
 

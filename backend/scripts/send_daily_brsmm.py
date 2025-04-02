@@ -44,7 +44,9 @@ def enviar_pedidos():
 
         # 📦 Busca informações do serviço
         services = api.get_services()
-        selected = next((s for s in services if s["service"] == SERVICE_ID), None)
+
+        selected = next((s for s in services if int(s["service"]) == SERVICE_ID), None)
+
         if not selected:
             logar(f"❌ Serviço {SERVICE_ID} não encontrado!", log)
             return
@@ -59,10 +61,8 @@ def enviar_pedidos():
             custo_estimado = round(rate * quantidade, 4)
             total_gasto += custo_estimado
 
-            logar(
-                f"➡️ Enviando tráfego para {url}\n   • Quantidade: {quantidade} | 💸 Estimado: ${custo_estimado}",
-                log,
-            )
+            pedido_formatado = f"{SERVICE_ID} | {url} | {quantidade}"
+            logar(f"➡️ Pedido gerado: {pedido_formatado}", log)
 
             try:
                 response = api.add_order(
@@ -75,7 +75,7 @@ def enviar_pedidos():
             except Exception as e:
                 logar(f"💥 Erro inesperado: {str(e)}", log)
 
-        logar(f"📊 Total estimado gasto nesta execução: ${total_gasto:.4f}", log)
+        logar(f"📊 Total estimado gasto nesta execução: ${total_gasto:.2f}", log)
         logar(f"📊 Saldo atual: ${saldo_float:.2f}", log)
         logar("🏁 Execução finalizada.\n", log)
 

@@ -39,21 +39,22 @@ def test_brsmm_balance(headers):
 
 
 def test_brsmm_order_and_status(headers):
-    # Passo 1: pegar ID do primeiro serviço válido
-    services = requests.get(f"{BASE_URL}/api/brsmm/services", headers=headers).json()
-    assert services and isinstance(services, list)
-    service_id = services[0]["service"]
+    """
+    🔁 Testa envio de pedido fixo e consulta de status com service_id 171.
+    """
+    service_id = 171
+    test_url = "https://apretailer.com.br/click/67c140362bfa8136ea48f2f9/185510/349334/subaccount"
+    quantidade = 50
 
-    # Passo 2: criar pedido
-    payload = {"link": "https://example.com", "service_id": service_id, "quantity": 100}
+    payload = {"link": test_url, "service_id": service_id, "quantity": quantidade}
     resp = requests.post(f"{BASE_URL}/api/brsmm/order", json=payload, headers=headers)
-    assert resp.status_code in [200, 400]  # 400 se limite do serviço for maior
+    assert resp.status_code in [200, 400]
 
     if resp.status_code == 200:
         order_id = resp.json().get("order")
-        assert order_id
+        assert order_id, "Pedido não retornou order_id"
 
-        # Passo 3: consultar status
+        # Consulta status
         status_resp = requests.get(
             f"{BASE_URL}/api/brsmm/status/{order_id}", headers=headers
         )

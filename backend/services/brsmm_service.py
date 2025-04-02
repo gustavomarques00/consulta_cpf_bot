@@ -1,6 +1,6 @@
 import requests
 from core.config import Config
-
+from core.db import get_db_connection
 
 class BrsmmService:
     def __init__(self):
@@ -33,29 +33,46 @@ class BrsmmService:
 
     def get_balance(self):
         return self._post({"action": "balance"})
+    
+    @staticmethod
+    def registrar_pedido_usuario(
+        user_id,
+        pedido_api,
+        service_id,
+        url,
+        quantidade,
+        preco_unitario,
+        preco_total
+    ):
+        """
+        Registra o pedido no banco de dados, associando ao usuário autenticado.
+        """
+        conn = get_db_connection()
+        cursor = conn.cursor()
 
-
-# Exemplo de uso isolado
-if __name__ == "__main__":
-    api = BrsmmService()
-
-    print("💰 Consultando saldo...")
-    print(api.get_balance())
-
-    print("\n📦 Serviços disponíveis:")
-    services = api.get_services()
-    for s in services[:3]:  # Limita a 3 para exemplo
-        print(f"ID: {s['service']} | Nome: {s['name']} | Preço: ${s['rate']}")
-
-    print("\n🚀 Criando pedido de tráfego...")
-    service_id = services[0]["service"]
-    response = api.add_order(
-        link="https://example.com", service_id=service_id, quantity=100
-    )
-
-    if "order" in response:
-        print(f"✅ Pedido criado: {response['order']}")
-        status = api.get_order_status(response["order"])
-        print("📊 Status do pedido:", status)
-    else:
-        print("❌ Falha ao criar pedido:", response)
+        try:
+            cursor.execute(
+                """
+                INSERT INTO trafego_pedidos (
+                    user_id, brsmm_order_id, service_id, url,
+                    quantidade, preco_unitario, preco_total, status, criado_em
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW())
+                """,
+                (
+                    user_id,
+                    pedido_api.get("order"),
+                    service_id,
+                    url,
+                    quantidade,
+                    preco_unitario,
+                    preco_total,
+                    pedido_api.get("status", "Pendente"),
+                ),
+            )
+            conn.commit()
+            print(f"✅ Pedido do usuário {user_id} registrado com sucesso.")
+        except Exception as e:
+            print(f"❌ Erro ao registrar pedido no banco: {e}")
+        finally:
+            cursor.close()
+            conn.close()

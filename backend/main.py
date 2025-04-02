@@ -37,10 +37,12 @@ swagger_config = {
 }
 swagger = Swagger(app, config=swagger_config)
 
+
 # 🔧 Endpoint da especificação JSON para o Swagger UI
 @app.route("/swagger_api")
 def swagger_api():
     return jsonify(swagger.template)
+
 
 # =============================
 # 🔗 Registro de Blueprints

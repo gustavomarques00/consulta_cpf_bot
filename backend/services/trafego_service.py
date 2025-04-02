@@ -1,5 +1,5 @@
+from core.db import get_db_connection
 from services.brsmm_service import BrsmmService
-from backend.core.db import get_db_connection
 
 class TrafegoService:
     def __init__(self):
@@ -15,18 +15,26 @@ class TrafegoService:
         cursor = conn.cursor()
 
         for s in servicos:
-            cursor.execute("""
-                INSERT INTO trafego_servicos (brsmm_id, nome, categoria, tipo, preco_base, markup_percent)
+            cursor.execute(
+                """
+                INSERT INTO trafego_servicos (
+                    brsmm_id, nome, categoria, tipo, preco_base, markup_percent
+                )
                 VALUES (%s, %s, %s, %s, %s, %s)
-                ON DUPLICATE KEY UPDATE preco_base = VALUES(preco_base), nome = VALUES(nome), categoria = VALUES(categoria)
-            """, (
-                s["service"],
-                s["name"],
-                s.get("category", ""),
-                s.get("type", ""),
-                float(s["rate"]),
-                50.0
-            ))
+                ON DUPLICATE KEY UPDATE 
+                    preco_base = VALUES(preco_base),
+                    nome = VALUES(nome),
+                    categoria = VALUES(categoria)
+                """,
+                (
+                    s["service"],
+                    s["name"],
+                    s.get("category", ""),
+                    s.get("type", ""),
+                    float(s["rate"]),
+                    50.0,  # Markup padrão
+                ),
+            )
 
         conn.commit()
         cursor.close()
@@ -35,12 +43,15 @@ class TrafegoService:
 
     def enviar_pedido(self, user_id, service_id, url, quantidade):
         """
-        Realiza o pedido na BRSMM e retorna o custo com markup.
+        Realiza o pedido na BRSMM e salva no histórico do usuário.
         """
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
 
-        cursor.execute("SELECT * FROM trafego_servicos WHERE id = %s AND disponivel = TRUE", (service_id,))
+        cursor.execute(
+            "SELECT * FROM trafego_servicos WHERE id = %s AND disponivel = TRUE",
+            (service_id,),
+        )
         servico = cursor.fetchone()
         cursor.close()
         conn.close()
@@ -53,16 +64,26 @@ class TrafegoService:
         preco_unitario = round(rate_base * (1 + markup / 100), 4)
         preco_total = round(preco_unitario * quantidade, 4)
 
-        # Envia pedido via API real
+        # Faz o pedido real via API
         brsmm_response = self.api.add_order(
-            link=url,
-            service_id=servico["brsmm_id"],
-            quantity=quantidade
+            link=url, service_id=servico["brsmm_id"], quantity=quantidade
         )
+
+        # ✅ Salva no histórico, se o pedido foi aceito
+        if "order" in brsmm_response:
+            BrsmmService.registrar_pedido_usuario(
+                user_id=user_id,
+                pedido_api=brsmm_response,
+                service_id=service_id,
+                url=url,
+                quantidade=quantidade,
+                preco_unitario=preco_unitario,
+                preco_total=preco_total,
+            )
 
         return {
             "pedido_api": brsmm_response,
             "preco_total": preco_total,
             "markup_percent": markup,
-            "preco_unitario": preco_unitario
+            "preco_unitario": preco_unitario,
         }
