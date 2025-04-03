@@ -112,10 +112,6 @@ class Config:
             ("CREDENTIALS_FILE", Config.CREDENTIALS_FILE),
         ]
 
-        print(
-            f"{EMOJI['info']} Caminho absoluto esperado: {os.path.abspath(Config.CREDENTIALS_FILE)}"
-        )
-
         for field, value in required_fields:
             if not value:
                 raise ValueError(

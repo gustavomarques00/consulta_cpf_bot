@@ -1,5 +1,6 @@
 import os
 import csv
+from venv import logger
 from core.db import get_db_connection
 from flask import Blueprint, jsonify, request, send_file
 from datetime import datetime
@@ -286,7 +287,6 @@ def meus_pedidos():
     except Exception as e:
         return jsonify({"error": f"Erro ao consultar pedidos: {str(e)}"}), 500
 
-
 @trafego_bp.route("/pedidos/<int:order_id>/status", methods=["GET"])
 @token_required
 def status_pedido(order_id):
@@ -294,13 +294,13 @@ def status_pedido(order_id):
     Verifica o status de um pedido específico.
     """
     try:
-        # Verificando se o pedido existe para o user_id e order_id
+        # Log de início da consulta
+        logger.info(f"Iniciando consulta de status para pedido {order_id} do usuário {request.user_id}")
+        
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
-        print(
-            f"User ID do token: {request.user_id}"
-        )  # Para garantir que o valor está correto
 
+        # Verificar se o pedido existe
         cursor.execute(
             "SELECT * FROM trafego_pedidos WHERE brsmm_order_id = %s AND user_id = %s",
             (order_id, request.user_id),
@@ -308,27 +308,21 @@ def status_pedido(order_id):
         pedido = cursor.fetchone()
 
         if not pedido:
-            cursor.close()
-            conn.close()
-            return (
-                jsonify({"error": "Pedido não encontrado para o usuário autenticado"}),
-                404,
-            )
+            logger.warning(f"Pedido não encontrado: user_id={request.user_id}, order_id={order_id}")
+            return jsonify({"error": "Pedido não encontrado para o usuário autenticado"}), 404
 
         cursor.close()
         conn.close()
 
-        return (
-            jsonify(
-                {"status": pedido["status"], "data_criado_em": pedido["criado_em"]}
-            ),
-            200,
-        )
+        # Log de sucesso
+        logger.info(f"Pedido encontrado: user_id={request.user_id}, order_id={order_id}, status={pedido['status']}")
+        return jsonify({"status": pedido["status"], "data_criado_em": pedido["criado_em"]}), 200
 
     except Exception as e:
-        # Log para captura do erro
-        print(f"Erro ao consultar status do pedido: {str(e)}")
+        logger.error(f"Erro ao consultar status do pedido: order_id={order_id}, error={str(e)}")
         return jsonify({"error": f"Erro ao consultar status do pedido: {str(e)}"}), 500
+
+
 
 
 @trafego_bp.route("/pedidos/status", methods=["GET"])
@@ -343,8 +337,7 @@ def status_multiplos_pedidos():
         return jsonify({"error": "É necessário passar ao menos um ID de pedido"}), 400
 
     order_ids_tuple = tuple(order_ids)
-    print(f"IDs recebidos: {order_ids_tuple}")  # Log para verificar os IDs recebidos
-
+    
     try:
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
@@ -355,38 +348,22 @@ def status_multiplos_pedidos():
         )
         pedidos = cursor.fetchall()
 
-        print(
-            f"Pedidos encontrados: {pedidos}"
-        )  # Log para ver quais pedidos foram encontrados
-
-        # Verifica se algum dos pedidos solicitados não foi encontrado
+        # Verifica se todos os pedidos foram encontrados, caso contrário retorna 404
         if len(pedidos) != len(order_ids):
-            cursor.close()
-            conn.close()
-            return (
-                jsonify({"error": "Nenhum pedido encontrado para os IDs fornecidos"}),
-                404,
-            )
-
+            return jsonify({"error": "Nenhum pedido encontrado para os IDs fornecidos"}), 404
+        
         cursor.close()
         conn.close()
 
-        return (
-            jsonify(
-                [
-                    {"order_id": pedido["brsmm_order_id"], "status": pedido["status"]}
-                    for pedido in pedidos
-                ]
-            ),
-            200,
-        )
+        # Se encontrar, retorna a lista de pedidos com seus status
+        return jsonify(
+            [
+                {"order_id": pedido["brsmm_order_id"], "status": pedido["status"]}
+                for pedido in pedidos
+            ]
+        ), 200
 
     except Exception as e:
-        # Log para captura do erro
-        print(f"Erro ao consultar status de múltiplos pedidos: {str(e)}")
-        return (
-            jsonify(
-                {"error": f"Erro ao consultar status de múltiplos pedidos: {str(e)}"}
-            ),
-            500,
-        )
+        # Caso ocorra algum erro no banco de dados ou outro erro interno
+        return jsonify({"error": f"Erro ao consultar status de múltiplos pedidos: {str(e)}"}), 500
+

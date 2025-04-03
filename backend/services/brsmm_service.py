@@ -35,7 +35,6 @@ class BrsmmService:
     def get_balance(self):
         return self._post({"action": "balance"})
 
-    @staticmethod
     def registrar_pedido_usuario(
         user_id, pedido_api, service_id, url, quantidade, preco_unitario, preco_total
     ):
