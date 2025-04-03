@@ -1,7 +1,13 @@
-from flask import Blueprint, request, jsonify  # type: ignore
+import os
+import logging
+from flask import Blueprint, request, jsonify
 from middlewares.auth_middleware import token_required
 from services.brsmm_service import BrsmmService
 from flasgger.utils import swag_from  # type: ignore
+
+# Configuração do Logger
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 brsmm_bp = Blueprint("brsmm", __name__, url_prefix="/api/brsmm")
 api = BrsmmService()
@@ -26,10 +32,13 @@ api = BrsmmService()
     }
 )
 def listar_servicos():
+    logger.info("Iniciando consulta para listar serviços BRSMM.")
     try:
         services = api.get_services()
+        logger.info(f"Serviços encontrados: {len(services)}")
         return jsonify(services), 200
     except Exception as e:
+        logger.error(f"Erro ao buscar serviços: {str(e)}")
         return jsonify({"error": f"Erro ao buscar serviços: {str(e)}"}), 500
 
 
@@ -64,18 +73,28 @@ def listar_servicos():
 def criar_pedido():
     data = request.get_json()
     required_fields = ["link", "service_id", "quantity"]
+    logger.info(f"Iniciando criação de pedido com os dados: {data}")
 
+    # Validação de campos obrigatórios
     for field in required_fields:
         if field not in data:
+            logger.warning(f"Campo obrigatório ausente: {field}")
             return jsonify({"error": f"Campo obrigatório ausente: {field}"}), 400
 
+    # Validação de quantidade
     if not (50 <= data["quantity"] <= 10000):
+        logger.warning(f"Quantidade inválida: {data['quantity']}. Deveria estar entre 50 e 10000.")
         return jsonify({"error": "Quantidade deve estar entre 50 e 10000"}), 400
 
-    response = api.add_order(
-        link=data["link"], service_id=data["service_id"], quantity=data["quantity"]
-    )
-    return jsonify(response), 200 if "order" in response else 400
+    try:
+        response = api.add_order(
+            link=data["link"], service_id=data["service_id"], quantity=data["quantity"]
+        )
+        logger.info(f"Pedido criado com sucesso: {response}")
+        return jsonify(response), 200 if "order" in response else 400
+    except Exception as e:
+        logger.error(f"Erro ao criar pedido: {str(e)}")
+        return jsonify({"error": f"Erro ao criar pedido: {str(e)}"}), 500
 
 
 @brsmm_bp.route("/status/<int:order_id>", methods=["GET"])
@@ -98,10 +117,13 @@ def criar_pedido():
     }
 )
 def consultar_status(order_id):
+    logger.info(f"Iniciando consulta do status para o pedido {order_id}")
     try:
         response = api.get_order_status(order_id)
+        logger.info(f"Status do pedido {order_id}: {response}")
         return jsonify(response), 200
     except Exception as e:
+        logger.error(f"Erro ao consultar status do pedido {order_id}: {str(e)}")
         return jsonify({"error": f"Erro ao consultar status: {str(e)}"}), 500
 
 
@@ -122,7 +144,11 @@ def consultar_status(order_id):
     }
 )
 def consultar_saldo():
+    logger.info("Iniciando consulta de saldo BRSMM.")
     try:
-        return jsonify(api.get_balance()), 200
+        balance = api.get_balance()
+        logger.info(f"Saldo encontrado: {balance}")
+        return jsonify(balance), 200
     except Exception as e:
+        logger.error(f"Erro ao consultar saldo: {str(e)}")
         return jsonify({"error": f"Erro ao consultar saldo: {str(e)}"}), 500
