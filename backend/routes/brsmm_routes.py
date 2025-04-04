@@ -1,6 +1,6 @@
 import os
 import logging
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify  # type: ignore
 from middlewares.auth_middleware import token_required
 from services.brsmm_service import BrsmmService
 from flasgger.utils import swag_from  # type: ignore
@@ -83,7 +83,9 @@ def criar_pedido():
 
     # Validação de quantidade
     if not (50 <= data["quantity"] <= 10000):
-        logger.warning(f"Quantidade inválida: {data['quantity']}. Deveria estar entre 50 e 10000.")
+        logger.warning(
+            f"Quantidade inválida: {data['quantity']}. Deveria estar entre 50 e 10000."
+        )
         return jsonify({"error": "Quantidade deve estar entre 50 e 10000"}), 400
 
     try:

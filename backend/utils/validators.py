@@ -36,8 +36,11 @@ def is_valid_password(password: str) -> bool:
 
 def validar_formato_cpf(cpf: str) -> bool:
     """Valida se o CPF tem formato correto e é matematicamente válido."""
+    # Remove todos os caracteres não numéricos
     cpf = re.sub(r"\D", "", cpf)
+    print(f"CPF após remoção de caracteres não numéricos: {cpf}")
 
+    # Verifica se o CPF tem 11 dígitos e se não é uma sequência repetitiva (como 111.111.111-11)
     if len(cpf) != 11 or cpf == cpf[0] * 11:
         return False
 

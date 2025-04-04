@@ -6,11 +6,13 @@ from flask import Blueprint, jsonify, request, send_file
 from datetime import datetime
 from io import StringIO
 from urllib.parse import urlparse
+import logging
 from flasgger import swag_from
 from backend.core.config import Config
 from middlewares.auth_middleware import token_required
 
 trafego_bp = Blueprint("trafego", __name__, url_prefix="/api/trafego")
+logger = logging.getLogger(__name__)
 
 
 @trafego_bp.route("/historico", methods=["GET"])
@@ -174,6 +176,7 @@ def enviar_trafego_manual():
     service_id = data.get("service_id")
     url = data.get("url")
     quantidade = data.get("quantidade")
+    user_id = request.user_id  # O ID do usuário autenticado
 
     if not all([service_id, url, quantidade]):
         return (
@@ -188,19 +191,50 @@ def enviar_trafego_manual():
     if not parsed_url.scheme in ["http", "https"]:
         return jsonify({"error": "URL inválida. Use http:// ou https://"}), 400
 
+    # Envia o tráfego e registra no banco de dados
     api = BrsmmService()
     response = api.add_order(link=url, service_id=service_id, quantity=quantidade)
 
     if "order" in response:
-        return (
-            jsonify(
-                {
-                    "message": "✅ Pedido enviado com sucesso",
-                    "order_id": response["order"],
-                }
-            ),
-            200,
-        )
+        order_id = response["order"]
+
+        # Salva o pedido no banco de dados, incluindo o ID do usuário
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO trafego_pedidos (user_id, service_id, url, quantidade, status, brsmm_order_id, criado_em)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    user_id,
+                    service_id,
+                    url,
+                    quantidade,
+                    "Em andamento",  # Status inicial
+                    order_id,
+                    datetime.now(),
+                ),
+            )
+            conn.commit()
+            cursor.close()
+            conn.close()
+
+            # Dentro da função enviar_trafego_manual
+            logger.info(f"Usuário {user_id} enviou um pedido para a URL {url} com {quantidade} itens.")
+
+            return (
+                jsonify(
+                    {
+                        "message": "✅ Pedido enviado com sucesso",
+                        "order_id": order_id,
+                    }
+                ),
+                200,
+            )
+        except Exception as e:
+            return jsonify({"error": f"Erro ao salvar pedido no banco: {str(e)}"}), 500
     else:
         return jsonify({"error": response}), 400
 
@@ -287,6 +321,7 @@ def meus_pedidos():
     except Exception as e:
         return jsonify({"error": f"Erro ao consultar pedidos: {str(e)}"}), 500
 
+
 @trafego_bp.route("/pedidos/<int:order_id>/status", methods=["GET"])
 @token_required
 def status_pedido(order_id):
@@ -295,8 +330,10 @@ def status_pedido(order_id):
     """
     try:
         # Log de início da consulta
-        logger.info(f"Iniciando consulta de status para pedido {order_id} do usuário {request.user_id}")
-        
+        logger.info(
+            f"Iniciando consulta de status para pedido {order_id} do usuário {request.user_id}"
+        )
+
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
 
@@ -308,21 +345,33 @@ def status_pedido(order_id):
         pedido = cursor.fetchone()
 
         if not pedido:
-            logger.warning(f"Pedido não encontrado: user_id={request.user_id}, order_id={order_id}")
-            return jsonify({"error": "Pedido não encontrado para o usuário autenticado"}), 404
+            logger.warning(
+                f"Pedido não encontrado: user_id={request.user_id}, order_id={order_id}"
+            )
+            return (
+                jsonify({"error": "Pedido não encontrado para o usuário autenticado"}),
+                404,
+            )
 
         cursor.close()
         conn.close()
 
         # Log de sucesso
-        logger.info(f"Pedido encontrado: user_id={request.user_id}, order_id={order_id}, status={pedido['status']}")
-        return jsonify({"status": pedido["status"], "data_criado_em": pedido["criado_em"]}), 200
+        logger.info(
+            f"Pedido encontrado: user_id={request.user_id}, order_id={order_id}, status={pedido['status']}"
+        )
+        return (
+            jsonify(
+                {"status": pedido["status"], "data_criado_em": pedido["criado_em"]}
+            ),
+            200,
+        )
 
     except Exception as e:
-        logger.error(f"Erro ao consultar status do pedido: order_id={order_id}, error={str(e)}")
+        logger.error(
+            f"Erro ao consultar status do pedido: order_id={order_id}, error={str(e)}"
+        )
         return jsonify({"error": f"Erro ao consultar status do pedido: {str(e)}"}), 500
-
-
 
 
 @trafego_bp.route("/pedidos/status", methods=["GET"])
@@ -337,7 +386,7 @@ def status_multiplos_pedidos():
         return jsonify({"error": "É necessário passar ao menos um ID de pedido"}), 400
 
     order_ids_tuple = tuple(order_ids)
-    
+
     try:
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
@@ -350,20 +399,30 @@ def status_multiplos_pedidos():
 
         # Verifica se todos os pedidos foram encontrados, caso contrário retorna 404
         if len(pedidos) != len(order_ids):
-            return jsonify({"error": "Nenhum pedido encontrado para os IDs fornecidos"}), 404
-        
+            return (
+                jsonify({"error": "Nenhum pedido encontrado para os IDs fornecidos"}),
+                404,
+            )
+
         cursor.close()
         conn.close()
 
         # Se encontrar, retorna a lista de pedidos com seus status
-        return jsonify(
-            [
-                {"order_id": pedido["brsmm_order_id"], "status": pedido["status"]}
-                for pedido in pedidos
-            ]
-        ), 200
+        return (
+            jsonify(
+                [
+                    {"order_id": pedido["brsmm_order_id"], "status": pedido["status"]}
+                    for pedido in pedidos
+                ]
+            ),
+            200,
+        )
 
     except Exception as e:
         # Caso ocorra algum erro no banco de dados ou outro erro interno
-        return jsonify({"error": f"Erro ao consultar status de múltiplos pedidos: {str(e)}"}), 500
-
+        return (
+            jsonify(
+                {"error": f"Erro ao consultar status de múltiplos pedidos: {str(e)}"}
+            ),
+            500,
+        )

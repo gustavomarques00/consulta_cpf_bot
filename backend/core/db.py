@@ -1,7 +1,7 @@
 import mysql.connector
 from mysql.connector import Error
 from dotenv import load_dotenv
-from backend.core.config import Config  # usa as envs centralizadas
+from core.config import Config  # usa as envs centralizadas
 
 load_dotenv()
 

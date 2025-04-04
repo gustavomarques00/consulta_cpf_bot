@@ -1,10 +1,10 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request  # type: ignore
 from core.db import get_db_connection
 from middlewares.auth_middleware import token_required, only_super_admin
 import json
 import datetime
 from utils.token import generate_token, create_refresh_token, generate_tokens
-import jwt
+import jwt  # type: ignore
 import os
 
 plans_bp = Blueprint("plans_bp", __name__)

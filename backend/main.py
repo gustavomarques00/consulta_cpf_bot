@@ -44,6 +44,7 @@ swagger = Swagger(app, config=swagger_config)
 def swagger_api():
     return jsonify(swagger.template)
 
+
 # =============================
 # 📜 Configuração de Log
 # =============================
@@ -54,7 +55,7 @@ logging.basicConfig(
     handlers=[
         logging.FileHandler("logs/geral.log"),  # Log em arquivo
         logging.StreamHandler(),  # Log no console
-    ]
+    ],
 )
 
 
@@ -69,10 +70,10 @@ app.register_blueprint(trafego_bp)
 # =============================
 # 🔐 Log de Configuração
 # =============================
-#print(f"🔐 JWT_SECRET: {Config.JWT_SECRET}")
-#print(f"🌐 BASE_URL: {Config.BASE_URL}")
-#print("📡 Rotas disponíveis:")
-#print(app.url_map)
+# print(f"🔐 JWT_SECRET: {Config.JWT_SECRET}")
+# print(f"🌐 BASE_URL: {Config.BASE_URL}")
+# print("📡 Rotas disponíveis:")
+# print(app.url_map)
 
 # =============================
 # 🏁 Inicialização

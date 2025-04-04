@@ -10,7 +10,7 @@ BASE_URL = os.getenv("BASE_URL", "http://127.0.0.1:5000")
 
 def test_enviar_pedido_salva_em_banco(token):
     """
-    ✅ Testa o envio de tráfego via API e verifica se foi registrado no banco.
+    Testa o envio de tráfego via API e verifica se foi registrado no banco.
     """
     headers = {
         "Authorization": f"Bearer {token}",
@@ -30,11 +30,17 @@ def test_enviar_pedido_salva_em_banco(token):
     }
     resp = requests.post(f"{BASE_URL}/api/trafego/send", json=payload, headers=headers)
 
+    # Verifique o código de status
     assert resp.status_code in [200, 400]
 
+    if resp.status_code == 400:
+        print("Erro na requisição:", resp.json())  # Imprime a mensagem de erro
+
+    # Se o status for 200, continue verificando se o pedido foi salvo no banco
     if resp.status_code == 200:
         data = resp.json()
         assert "order_id" in data
+        assert isinstance(data["order_id"], int)
         assert data["message"].startswith("✅")
 
         order_id = data["order_id"]
@@ -49,3 +55,5 @@ def test_enviar_pedido_salva_em_banco(token):
 
         assert result, "Pedido não foi salvo no banco de dados"
         assert result["user_id"], "user_id não salvo"
+        assert result["service_id"] == service_id, "service_id não corresponde"
+        assert result["quantidade"] == quantidade, "quantidade não corresponde"

@@ -1,8 +1,8 @@
 import os
 import logging
-import bcrypt
+import bcrypt  # type: ignore
 import mysql.connector
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify  # type: ignore
 from core.db import get_db_connection
 from utils.validators import (
     is_valid_email,
@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 # Blueprint de autenticação
 auth_bp = Blueprint("auth_bp", __name__)
+
 
 @auth_bp.route("/register", methods=["POST"])
 @swag_from(
@@ -40,7 +41,7 @@ auth_bp = Blueprint("auth_bp", __name__)
                         "telefone",
                         "tipoUsuario",
                         "senha",
-                        "confirmarSenha"
+                        "confirmarSenha",
                     ],
                     "properties": {
                         "nome": {"type": "string", "example": "Gustavo Marques"},
@@ -48,10 +49,13 @@ auth_bp = Blueprint("auth_bp", __name__)
                         "telefone": {"type": "string", "example": "(11) 91234-5678"},
                         "tipoUsuario": {"type": "string", "example": "ADM"},
                         "senha": {"type": "string", "example": "SenhaForte123!"},
-                        "confirmarSenha": {"type": "string", "example": "SenhaForte123!"},
-                        "cargo": {"type": "string", "example": "ADM"}
-                    }
-                }
+                        "confirmarSenha": {
+                            "type": "string",
+                            "example": "SenhaForte123!",
+                        },
+                        "cargo": {"type": "string", "example": "ADM"},
+                    },
+                },
             }
         ],
         "responses": {
@@ -60,9 +64,12 @@ auth_bp = Blueprint("auth_bp", __name__)
                 "schema": {
                     "type": "object",
                     "properties": {
-                        "message": {"type": "string", "example": "Usuário registrado com sucesso!"}
-                    }
-                }
+                        "message": {
+                            "type": "string",
+                            "example": "Usuário registrado com sucesso!",
+                        }
+                    },
+                },
             },
             400: {
                 "description": "Erro de validação nos dados de entrada",
@@ -70,19 +77,22 @@ auth_bp = Blueprint("auth_bp", __name__)
                     "type": "object",
                     "properties": {
                         "error": {"type": "string", "example": "Email já cadastrado!"}
-                    }
-                }
+                    },
+                },
             },
             500: {
                 "description": "Erro interno do servidor ou banco de dados",
                 "schema": {
                     "type": "object",
                     "properties": {
-                        "error": {"type": "string", "example": "Erro no banco de dados: ..."}
-                    }
-                }
-            }
-        }
+                        "error": {
+                            "type": "string",
+                            "example": "Erro no banco de dados: ...",
+                        }
+                    },
+                },
+            },
+        },
     }
 )
 def register():
@@ -98,7 +108,14 @@ def register():
     cargo = data.get("cargo", "Usuario")
 
     # ===== Validações dos dados recebidos =====
-    if not nome or not email or not telefone or not tipo_usuario or not senha or not confirmar_senha:
+    if (
+        not nome
+        or not email
+        or not telefone
+        or not tipo_usuario
+        or not senha
+        or not confirmar_senha
+    ):
         logger.warning("Todos os campos são obrigatórios!")
         return jsonify({"error": "Todos os campos são obrigatórios!"}), 400
 
@@ -120,7 +137,14 @@ def register():
 
     if tipo_usuario not in valid_user_types:
         logger.warning(f"Tipo de usuário inválido: {tipo_usuario}")
-        return jsonify({"error": f"Tipo de usuário inválido. Válidos: {', '.join(valid_user_types)}"}), 400
+        return (
+            jsonify(
+                {
+                    "error": f"Tipo de usuário inválido. Válidos: {', '.join(valid_user_types)}"
+                }
+            ),
+            400,
+        )
 
     # Criptografar a senha com bcrypt
     hashed_senha = bcrypt.hashpw(senha.encode("utf-8"), bcrypt.gensalt())

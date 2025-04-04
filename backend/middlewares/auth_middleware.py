@@ -1,6 +1,6 @@
-from flask import request, jsonify
+from flask import request, jsonify  # type: ignore
 from functools import wraps
-import jwt
+import jwt  # type: ignore
 from core.db import get_db_connection
 from core.config import Config
 
