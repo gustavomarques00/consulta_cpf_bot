@@ -1,39 +1,26 @@
-import pytest  # type: ignore
+import pytest
 import requests
 import os
-from dotenv import load_dotenv
-
-load_dotenv()
-BASE_URL = os.getenv("BASE_URL", "http://127.0.0.1:5000")
 
 
-@pytest.fixture
-def headers():
-    user_id = os.getenv("TEST_USER_ID")
-    cargo = os.getenv("TEST_USER_CARGO")
-    assert (
-        user_id and cargo
-    ), "Variáveis TEST_USER_ID e TEST_USER_CARGO não configuradas"
-
-    resp = requests.post(
-        f"{BASE_URL}/api/generate-token", json={"user_id": user_id, "cargo": cargo}
-    )
-    assert resp.status_code == 200
-    token = resp.json().get("token")
-
-    return {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-
-
-def test_brsmm_services(headers):
-    resp = requests.get(f"{BASE_URL}/api/brsmm/services", headers=headers)
+def test_brsmm_services(token, base_url):
+    """
+    Testa o endpoint de serviços do BRSMM.
+    """
+    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {token['token']}"}
+    resp = requests.get(f"{base_url}/api/brsmm/services", headers=headers)
     assert resp.status_code == 200
     data = resp.json()
     assert isinstance(data, list)
     assert "service" in data[0]
 
 
-def test_brsmm_balance(headers):
-    resp = requests.get(f"{BASE_URL}/api/brsmm/balance", headers=headers)
+def test_brsmm_balance(token, base_url):
+    """
+    Testa o endpoint de saldo do BRSMM.
+    """
+    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {token['token']}"}
+    resp = requests.get(f"{base_url}/api/brsmm/balance", headers=headers)
     assert resp.status_code == 200
     assert "balance" in resp.json()
 

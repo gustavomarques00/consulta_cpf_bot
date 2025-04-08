@@ -1,63 +1,19 @@
 import pytest
 import requests
 import os
-from dotenv import load_dotenv
 
-# Carrega variáveis de ambiente
-load_dotenv()
-BASE_URL = os.getenv("BASE_URL", "http://127.0.0.1:5000")
-
-
-# ========================
-# FIXTURE GLOBAL: HEADERS
-# ========================
-@pytest.fixture(scope="module")
-def headers():
-    return {"Content-Type": "application/json"}
-
-
-# ========================
-# FUNÇÃO DE SUPORTE
-# ========================
-def gerar_tokens_adm(headers):
-    """
-    Gera access_token e refresh_token válidos para o cargo ADM.
-    """
-    user_id = os.getenv("TEST_USER_ID")
-    cargo = os.getenv("TEST_USER_CARGO")
-
-    assert (
-        user_id and cargo
-    ), "⚠️ TEST_USER_ID e TEST_USER_CARGO devem estar definidos no .env"
-
-    payload = {"user_id": int(user_id), "cargo": cargo}
-    response = requests.post(
-        f"{BASE_URL}/api/generate-token", json=payload, headers=headers
-    )
-
-    assert response.status_code == 200, "❌ Falha ao gerar tokens de teste"
-    tokens = response.json()
-
-    assert (
-        "token" in tokens and "refresh_token" in tokens
-    ), "❌ Tokens não retornados corretamente"
-    return tokens
-
+from tests.conftest import BASE_URL
 
 # ========================
 # TESTES DE ROTAS ADMIN
 # ========================
 
-
-def test_revoke_refresh_token(headers):
+def test_revoke_refresh_token(headers, token):
     """
     🔐 POST /api/admin/revoke-refresh-token
-
-    Testa a revogação de um refresh_token via rota protegida para administradores.
     """
-    tokens = gerar_tokens_adm(headers)
-    refresh_token = tokens["refresh_token"]
-    access_token = tokens["token"]
+    refresh_token = token["refresh_token"]
+    access_token = token["token"]
 
     admin_headers = {
         "Authorization": f"Bearer {access_token}",
@@ -76,21 +32,17 @@ def test_revoke_refresh_token(headers):
     assert "revogado" in response.json().get("message", "").lower()
 
 
-def test_list_refresh_tokens_paginated(headers):
+def test_list_refresh_tokens_paginated(headers, token):
     """
     📄 GET /api/admin/refresh-tokens
-
-    Lista refresh tokens com filtros de paginação e revogação.
-    Verifica se a estrutura de resposta está correta.
     """
-    tokens = gerar_tokens_adm(headers)
-    access_token = tokens["token"]
+    access_token = token["token"]
 
     admin_headers = {"Authorization": f"Bearer {access_token}"}
     params = {
         "page": 1,
         "limit": 5,
-        "email": "admin",  # ajuste conforme seu teste
+        "email": "admin",
         "revogado": "false",
     }
 

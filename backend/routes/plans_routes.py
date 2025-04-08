@@ -5,6 +5,7 @@ import json
 import datetime
 from utils.token import generate_token, create_refresh_token, generate_tokens
 import jwt  # type: ignore
+from utils.parse_date import parse_date
 import os
 
 plans_bp = Blueprint("plans_bp", __name__)
@@ -71,11 +72,11 @@ def get_user_plan():
     cursor = conn.cursor(dictionary=True)
     cursor.execute(
         """
-        SELECT p.id, p.nome, p.preco, p.features 
+        SELECT p.id, p.nome, p.preco, p.features, up.data_inicio, up.data_fim
         FROM usuarios_planos up 
         JOIN planos p ON up.plano_id = p.id 
         WHERE up.usuario_id = %s
-    """,
+        """,
         (user_id,),
     )
     user_plan = cursor.fetchone()
@@ -83,6 +84,12 @@ def get_user_plan():
 
     if not user_plan:
         return jsonify({"error": "Plano não encontrado!"}), 404
+
+    # Formatar as datas no padrão brasileiro usando parse_date
+    if user_plan["data_inicio"]:
+        user_plan["data_inicio"] = parse_date(str(user_plan["data_inicio"]))
+    if user_plan["data_fim"]:
+        user_plan["data_fim"] = parse_date(str(user_plan["data_fim"]))
 
     return jsonify(user_plan), 200
 

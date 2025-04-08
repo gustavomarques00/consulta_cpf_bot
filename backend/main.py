@@ -8,6 +8,7 @@ from routes.auth_routes import auth_bp  # 🔐 Autenticação
 from routes.plans_routes import plans_bp  # 📦 Planos
 from routes.brsmm_routes import brsmm_bp  # 🔗 BRSMM
 from routes.trafego_routes import trafego_bp  # 🚦 Tráfego diário
+from routes.operation_routes import chefe_bp # 👨‍💻 Operações
 
 
 # =============================
@@ -66,6 +67,7 @@ app.register_blueprint(auth_bp)
 app.register_blueprint(plans_bp)
 app.register_blueprint(brsmm_bp)
 app.register_blueprint(trafego_bp)
+app.register_blueprint(chefe_bp)
 
 # =============================
 # 🔐 Log de Configuração

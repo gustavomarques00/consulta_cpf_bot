@@ -1,62 +1,9 @@
 import pytest
 import requests
-from dotenv import load_dotenv
 import os
-from utils.token import generate_tokens
-
-# Carrega as variáveis de ambiente do .env
-load_dotenv()
-
-BASE_URL = os.getenv("BASE_URL", "http://127.0.0.1:5000")
-
-# ==== FIXTURES ====
-
-
-@pytest.fixture(scope="module")
-def headers():
-    """Headers padrão para requisições JSON."""
-    return {"Content-Type": "application/json"}
-
-
-@pytest.fixture(scope="module")
-def refresh_token(headers):
-    """Gera um refresh_token válido a partir do endpoint da API."""
-    user_id = os.getenv("TEST_USER_ID")
-    cargo = os.getenv("TEST_USER_CARGO")
-
-    assert user_id, "Variável TEST_USER_ID não configurada"
-    assert cargo, "Variável TEST_USER_CARGO não configurada"
-
-    response = requests.post(
-        f"{BASE_URL}/api/generate-token",
-        json={"user_id": user_id, "cargo": cargo},
-        headers=headers,
-    )
-    assert response.status_code == 200
-    return response.json().get("refresh_token")
-
-
-@pytest.fixture(scope="module")
-def token(headers):
-    """Gera um access_token válido a partir do endpoint da API."""
-    user_id = os.getenv("TEST_USER_ID")
-    cargo = os.getenv("TEST_USER_CARGO")
-
-    assert (
-        user_id and cargo
-    ), "Variáveis TEST_USER_ID e TEST_USER_CARGO devem estar configuradas"
-
-    response = requests.post(
-        f"{BASE_URL}/api/generate-token",
-        json={"user_id": user_id, "cargo": cargo},
-        headers=headers,
-    )
-    assert response.status_code == 200
-    return response.json().get("token")
-
+from tests.conftest import BASE_URL
 
 # ==== TESTES PÚBLICOS ====
-
 
 def test_get_plans(headers):
     """Testa se a rota pública retorna uma lista de planos."""
@@ -71,7 +18,7 @@ def test_get_plans(headers):
 
 def test_get_user_plan(token, headers):
     """Testa se usuário autenticado consegue consultar seu plano usando JWT."""
-    auth_headers = {**headers, "Authorization": f"Bearer {token}"}
+    auth_headers = {**headers, "Authorization": f"Bearer {token['token']}"}  # Use token['token']
     response = requests.get(f"{BASE_URL}/api/user-plans", headers=auth_headers)
     assert (
         response.status_code == 200
@@ -82,7 +29,7 @@ def test_get_user_plan(token, headers):
 
 def test_super_admin_access(token, headers):
     """Testa se usuário ADM acessa rota exclusiva do superadmin."""
-    auth_headers = {**headers, "Authorization": f"Bearer {token}"}
+    auth_headers = {**headers, "Authorization": f"Bearer {token['token']}"}
     response = requests.get(f"{BASE_URL}/api/superadmin/test", headers=auth_headers)
     assert response.status_code == 200
 
@@ -148,12 +95,12 @@ def test_refresh_token_renova_token(refresh_token):
 
 def test_revoke_token(token, headers):
     """Revoga o próprio token via /api/revoke-token."""
-    payload = {"token": token}
-    auth_headers = {**headers, "Authorization": f"Bearer {token}"}
+    auth_headers = {**headers, "Authorization": f"Bearer {token['token']}"}
+    payload = {"token": token['token']}
     response = requests.post(
         f"{BASE_URL}/api/revoke-token", json=payload, headers=auth_headers
     )
-    assert response.status_code == 200
+    assert response.status_code == 200, f"Erro ao revogar token: {response.text}"
     assert "revogado" in response.json().get("message", "").lower()
 
 

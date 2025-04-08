@@ -48,7 +48,7 @@ class Config:
         if CREDENTIALS_FILE_RAW and os.path.exists(CREDENTIALS_FILE_RAW)
         else DEFAULT_CREDENTIALS_PATH
     )
-    SHEET_NAME = os.getenv("SHEET_NAME", "Operação JUVO")
+    SHEET_NAME = os.getenv("SHEET_NAME", "Extração JUVO - OPERAÇÃO FINALIZADA 07/04")
     WORKSHEET_DATA = os.getenv("WORKSHEET_DATA", "Dados")
     WORKSHEET_CHECKER = os.getenv("WORKSHEET_CHECKER", "Checker")
     SHEET_ID = os.getenv("SHEET_ID")
@@ -88,8 +88,15 @@ class Config:
     # ===============================
     # 🧪 Usuário de Teste
     # ===============================
-    TEST_USER_ID = os.getenv("TEST_USER_ID")
-    TEST_USER_CARGO = os.getenv("TEST_USER_CARGO")
+    TEST_USER_ID_ADM = os.getenv("TEST_USER_ID_ADM")
+    TEST_USER_CARGO_ADM = os.getenv("TEST_USER_CARGO_ADM")
+    TEST_USER_ID_CHEFE = os.getenv("TEST_USER_ID_CHEFE")
+    TEST_USER_CARGO_CHEFE = os.getenv("TEST_USER_CARGO_CHEFE")
+    TEST_USER_ID_OPERADOR = os.getenv("TEST_USER_ID_OPERADOR")
+    TEST_USER_CARGO_OPERADOR = os.getenv("TEST_USER_CARGO_OPERADOR")
+    #TEST_USER_ID_GERENTE = os.getenv("TEST_USER_ID_GERENTE")
+    #TEST_USER_CARGO_GERENTE = os.getenv("TEST_USER_CARGO_GERENTE")
+
 
     # ===============================
     # 🔐 Credenciais WolfBuscas (opcional)
