@@ -2,13 +2,14 @@ from flask import Flask, jsonify  # type: ignore
 from flask_cors import CORS  # type: ignore
 from flasgger import Swagger  # type: ignore
 import logging
-
-from backend.core.config import Config  # ✅ Variáveis centralizadas
+from core.config import Config  # ✅ Variáveis centralizadas
 from routes.auth_routes import auth_bp  # 🔐 Autenticação
 from routes.plans_routes import plans_bp  # 📦 Planos
 from routes.brsmm_routes import brsmm_bp  # 🔗 BRSMM
 from routes.trafego_routes import trafego_bp  # 🚦 Tráfego diário
-from routes.operation_routes import chefe_bp # 👨‍💻 Operações
+from routes.operation_routes import operacaoes_bp  # 👨‍💻 Operações
+from routes.admin_routes import admin_bp  # 👨‍💻 Operações
+from routes.notification_routes import notificacoes_bp  # 👨‍💻 Operações
 
 
 # =============================
@@ -64,10 +65,12 @@ logging.basicConfig(
 # 🔗 Registro de Blueprints
 # =============================
 app.register_blueprint(auth_bp)
+app.register_blueprint(admin_bp)
 app.register_blueprint(plans_bp)
 app.register_blueprint(brsmm_bp)
 app.register_blueprint(trafego_bp)
-app.register_blueprint(chefe_bp)
+app.register_blueprint(operacaoes_bp)
+app.register_blueprint(notificacoes_bp)
 
 # =============================
 # 🔐 Log de Configuração

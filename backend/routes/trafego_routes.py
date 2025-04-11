@@ -8,10 +8,10 @@ from io import StringIO
 from urllib.parse import urlparse
 import logging
 from flasgger import swag_from
-from backend.core.config import Config
+from core.config import Config
 from middlewares.auth_middleware import token_required
 
-trafego_bp = Blueprint("trafego", __name__, url_prefix="/api/trafego")
+trafego_bp = Blueprint("trafego", __name__, url_prefix="/trafego")
 logger = logging.getLogger(__name__)
 
 
@@ -222,7 +222,9 @@ def enviar_trafego_manual():
             conn.close()
 
             # Dentro da função enviar_trafego_manual
-            logger.info(f"Usuário {user_id} enviou um pedido para a URL {url} com {quantidade} itens.")
+            logger.info(
+                f"Usuário {user_id} enviou um pedido para a URL {url} com {quantidade} itens."
+            )
 
             return (
                 jsonify(

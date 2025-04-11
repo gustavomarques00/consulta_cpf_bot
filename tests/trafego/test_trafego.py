@@ -9,6 +9,7 @@ load_dotenv()
 
 # POST Requests
 
+
 # Teste de envio de tráfego e verificação no banco de dados
 # Esta função testa o envio de tráfego via API e verifica se o pedido foi registrado corretamente no banco de dados.
 def test_enviar_pedido_salva_em_banco(token):
@@ -25,13 +26,13 @@ def test_enviar_pedido_salva_em_banco(token):
     test_url = "https://apretailer.com.br/click/67c140362bfa8136ea48f2f9/185510/349334/subaccount"
     quantidade = 50
 
-    # Envia um pedido via endpoint /api/trafego/send
+    # Envia um pedido via endpoint /trafego/send
     payload = {
         "service_id": service_id,
         "url": test_url,
         "quantidade": quantidade,
     }
-    resp = requests.post(f"{BASE_URL}/api/trafego/send", json=payload, headers=headers)
+    resp = requests.post(f"{BASE_URL}/trafego/send", json=payload, headers=headers)
 
     # Verifica o código de status da resposta
     assert resp.status_code in [200, 400]
@@ -69,7 +70,10 @@ def test_enviar_trafego(token):
     """
     Testa o endpoint de envio de tráfego para uma URL.
     """
-    headers = {"Authorization": f"Bearer {token['token']}", "Content-Type": "application/json"}
+    headers = {
+        "Authorization": f"Bearer {token['token']}",
+        "Content-Type": "application/json",
+    }
 
     # Dados do payload para o envio de tráfego
     payload = {
@@ -80,7 +84,7 @@ def test_enviar_trafego(token):
 
     # Realiza a requisição POST
     response = requests.post(
-        f"{BASE_URL}/api/trafego/send", json=payload, headers=headers
+        f"{BASE_URL}/trafego/send", json=payload, headers=headers
     )
 
     # Validações na resposta
@@ -112,7 +116,7 @@ def test_enviar_trafego_com_id_usuario(token):
     test_url = "https://apretailer.com.br/click/67c140362bfa8136ea48f2f9/185510/349334/subaccount"
     quantidade = 100  # Aumentando para 100, que pode ser o mínimo permitido pela API
 
-    # Envia um pedido via endpoint /api/trafego/send
+    # Envia um pedido via endpoint /trafego/send
     payload = {
         "service_id": service_id,
         "url": test_url,
@@ -120,14 +124,16 @@ def test_enviar_trafego_com_id_usuario(token):
     }
 
     # Realiza a requisição POST
-    resp = requests.post(f"{BASE_URL}/api/trafego/send", json=payload, headers=headers)
+    resp = requests.post(f"{BASE_URL}/trafego/send", json=payload, headers=headers)
 
     # Loga a resposta para diagnóstico
     print(f"Response status code: {resp.status_code}")
     print(f"Response body: {resp.text}")
 
     # Verifica se a resposta foi bem-sucedida
-    assert resp.status_code == 200, f"Esperado 200, mas obteve {resp.status_code}. Resposta: {resp.text}"
+    assert (
+        resp.status_code == 200
+    ), f"Esperado 200, mas obteve {resp.status_code}. Resposta: {resp.text}"
 
     data = resp.json()
 
@@ -152,22 +158,27 @@ def test_enviar_trafego_com_id_usuario(token):
     conn.close()
 
     # Verifica se o pedido foi encontrado no banco
-    assert result, f"Pedido com order_id {order_id} não foi encontrado no banco de dados."
+    assert (
+        result
+    ), f"Pedido com order_id {order_id} não foi encontrado no banco de dados."
 
     # Verifica se o 'user_id' foi corretamente salvo
-    assert result["user_id"] == int(user_id), f"Esperado user_id {user_id}, mas obteve {result['user_id']}"
+    assert result["user_id"] == int(
+        user_id
+    ), f"Esperado user_id {user_id}, mas obteve {result['user_id']}"
 
 
 # GET Requests
 
+
 # Teste de Histórico de Pedidos sem filtros
 def test_meus_pedidos_sem_filtros(headers, token):
     """
-    ✅ GET /api/trafego/historico/meus-pedidos (sem filtros)
+    ✅ GET /trafego/historico/meus-pedidos (sem filtros)
     Verifica se retorna estrutura de paginação e pedidos do usuário.
     """
     resp = requests.get(
-        f"{BASE_URL}/api/trafego/historico/meus-pedidos",
+        f"{BASE_URL}/trafego/historico/meus-pedidos",
         headers={**headers, "Authorization": f"Bearer {token['token']}"},
     )
     assert resp.status_code == 200
@@ -185,7 +196,7 @@ def test_meus_pedidos_com_filtro_status(headers, token):
     Testa o filtro de status no histórico de pedidos.
     """
     resp = requests.get(
-        f"{BASE_URL}/api/trafego/historico/meus-pedidos?status=sucesso",
+        f"{BASE_URL}/trafego/historico/meus-pedidos?status=sucesso",
         headers={**headers, "Authorization": f"Bearer {token['token']}"},
     )
     assert resp.status_code == 200
@@ -200,7 +211,7 @@ def test_meus_pedidos_com_filtros_multiplicados(headers, token):
     Testa o uso combinado de múltiplos filtros.
     """
     resp = requests.get(
-        f"{BASE_URL}/api/trafego/historico/meus-pedidos?status=sucesso&service_id=171&data_inicio=2025-04-01&data_fim=2025-04-02",
+        f"{BASE_URL}/trafego/historico/meus-pedidos?status=sucesso&service_id=171&data_inicio=2025-04-01&data_fim=2025-04-02",
         headers={**headers, "Authorization": f"Bearer {token['token']}"},
     )
     assert resp.status_code == 200
@@ -218,7 +229,7 @@ def test_status_pedido(headers, token):
     """
     order_id = 999001  # Exemplo de um pedido que existe no banco
     resp = requests.get(
-        f"{BASE_URL}/api/trafego/pedidos/{order_id}/status",
+        f"{BASE_URL}/trafego/pedidos/{order_id}/status",
         headers={**headers, "Authorization": f"Bearer {token['token']}"},
     )
 
@@ -235,7 +246,7 @@ def test_status_pedido_por_id(headers, token):
     """
     order_id = 999001  # ID do pedido para teste
     response = requests.get(
-        f"{BASE_URL}/api/trafego/pedidos/{order_id}/status",
+        f"{BASE_URL}/trafego/pedidos/{order_id}/status",
         headers={**headers, "Authorization": f"Bearer {token['token']}"},
     )
     assert response.status_code == 200
@@ -251,7 +262,7 @@ def test_status_multiplos_pedidos_not_found(headers, token):
     """
     order_ids = ["999001", "999999", "999003"]  # O ID 999999 não existe
     response = requests.get(
-        f"{BASE_URL}/api/trafego/pedidos/status",
+        f"{BASE_URL}/trafego/pedidos/status",
         headers={**headers, "Authorization": f"Bearer {token['token']}"},
         params={"order_ids": order_ids},
     )

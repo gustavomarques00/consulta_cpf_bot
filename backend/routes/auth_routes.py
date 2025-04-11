@@ -1,14 +1,12 @@
-import os
 import logging
 import bcrypt  # type: ignore
 import mysql.connector
 from flask import Blueprint, request, jsonify  # type: ignore
 from core.db import get_db_connection
 from utils.validators import (
-    is_valid_email,
-    is_valid_password,
-    is_valid_phone,
-    valid_user_types,
+    insert_user,
+    is_email_registered,
+    validate_user_data,
 )
 from flasgger.utils import swag_from  # type: ignore
 
@@ -17,30 +15,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Blueprint de autenticação
-auth_bp = Blueprint("auth_bp", __name__)
-
-
-import os
-import logging
-import bcrypt  # type: ignore
-import mysql.connector
-from flask import Blueprint, request, jsonify  # type: ignore
-from core.db import get_db_connection
-from utils.validators import (
-    is_valid_email,
-    is_valid_password,
-    is_valid_phone,
-)
-from flasgger.utils import swag_from  # type: ignore
-
-# Configuração do Logger
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# Blueprint de autenticação
-auth_bp = Blueprint("auth_bp", __name__)
-
-valid_user_types = ["ADM", "CHEFE DE EQUIPE", "OPERADOR"]  # Cargos válidos
+auth_bp = Blueprint("auth_bp", __name__, url_prefix="/auth")
 
 @auth_bp.route("/register", methods=["POST"])
 @swag_from(
@@ -71,7 +46,10 @@ valid_user_types = ["ADM", "CHEFE DE EQUIPE", "OPERADOR"]  # Cargos válidos
                         "telefone": {"type": "string", "example": "(11) 91234-5678"},
                         "cargo": {"type": "string", "example": "ADM"},
                         "senha": {"type": "string", "example": "SenhaForte123!"},
-                        "confirmarSenha": {"type": "string", "example": "SenhaForte123!"},
+                        "confirmarSenha": {
+                            "type": "string",
+                            "example": "SenhaForte123!",
+                        },
                     },
                 },
             }
@@ -84,7 +62,7 @@ valid_user_types = ["ADM", "CHEFE DE EQUIPE", "OPERADOR"]  # Cargos válidos
                     "properties": {
                         "message": {
                             "type": "string",
-                            "example": "Usuário registrado com sucesso!"
+                            "example": "Usuário registrado com sucesso!",
                         }
                     },
                 },
@@ -105,7 +83,7 @@ valid_user_types = ["ADM", "CHEFE DE EQUIPE", "OPERADOR"]  # Cargos válidos
                     "properties": {
                         "error": {
                             "type": "string",
-                            "example": "Erro no banco de dados: ..."
+                            "example": "Erro no banco de dados: ...",
                         }
                     },
                 },
@@ -117,61 +95,47 @@ def register():
     logger.info("Iniciando o cadastro de um novo usuário.")
     data = request.get_json()
 
-    nome = data.get("nome")
-    email = data.get("email")
-    telefone = data.get("telefone")
-    cargo = data.get("cargo")
-    senha = data.get("senha")
-    confirmar_senha = data.get("confirmarSenha")
+    # Extrair dados do corpo da requisição
+    required_fields = ["nome", "email", "telefone", "cargo", "senha", "confirmarSenha"]
+    missing_fields = [field for field in required_fields if not data.get(field)]
+    if missing_fields:
+        logger.warning(f"Campos obrigatórios ausentes: {', '.join(missing_fields)}")
+        return jsonify({"error": f"Campos obrigatórios: {', '.join(missing_fields)}"}), 400
 
-    # ===== Validações dos dados recebidos =====
-    if not nome or not email or not telefone or not cargo or not senha or not confirmar_senha:
-        logger.warning("Todos os campos são obrigatórios!")
-        return jsonify({"error": "Todos os campos são obrigatórios!"}), 400
+    nome = data["nome"]
+    email = data["email"]
+    telefone = data["telefone"]
+    cargo = data["cargo"]
+    senha = data["senha"]
+    confirmar_senha = data["confirmarSenha"]
 
-    if senha != confirmar_senha:
-        logger.warning("As senhas não coincidem!")
-        return jsonify({"error": "As senhas não coincidem!"}), 400
+    # Validações
+    validation_error = validate_user_data(email, telefone, senha, confirmar_senha, cargo)
+    if validation_error:
+        return validation_error
 
-    if not is_valid_email(email):
-        logger.warning(f"Email inválido: {email}")
-        return jsonify({"error": "Email inválido!"}), 400
-
-    if not is_valid_phone(telefone):
-        logger.warning(f"Telefone inválido: {telefone}")
-        return jsonify({"error": "Telefone inválido!"}), 400
-
-    if not is_valid_password(senha):
-        logger.warning("Senha fraca.")
-        return jsonify({"error": "Senha fraca. Use uma mais segura!"}), 400
-
-    if cargo not in valid_user_types:
+    # Verifica se o cargo é válido
+    cargos_validos = ["ADM", "OPERADOR", "CHEFE DE EQUIPE"]
+    if cargo not in cargos_validos:
         logger.warning(f"Cargo inválido: {cargo}")
-        return jsonify({"error": f"Cargo inválido. Válidos: {', '.join(valid_user_types)}"}), 400
+        return jsonify({"error": f"Cargo inválido. Os cargos válidos são: {', '.join(cargos_validos)}"}), 400
 
-    # Criptografar a senha com bcrypt
+    # Criptografar a senha
     hashed_senha = bcrypt.hashpw(senha.encode("utf-8"), bcrypt.gensalt())
     logger.info(f"Senha criptografada para o usuário {nome}.")
 
-    # ===== Inserção no banco de dados =====
+    # Inserir no banco de dados
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
 
         # Verifica se o email já está cadastrado
-        cursor.execute("SELECT * FROM usuarios WHERE email = %s", (email,))
-        if cursor.fetchone():
+        if is_email_registered(cursor, email):
             logger.warning(f"Email já cadastrado: {email}")
             return jsonify({"error": "Email já cadastrado!"}), 400
 
         # Insere o novo usuário
-        cursor.execute(
-            """
-            INSERT INTO usuarios (nome, email, telefone, cargo, senha)
-            VALUES (%s, %s, %s, %s, %s)
-            """,
-            (nome, email, telefone, cargo, hashed_senha),
-        )
+        insert_user(cursor, nome, email, telefone, cargo, hashed_senha)
         conn.commit()
         logger.info(f"Usuário {nome} registrado com sucesso.")
 

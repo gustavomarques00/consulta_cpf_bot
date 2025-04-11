@@ -37,6 +37,23 @@ class Config:
     BRSMM_API_URL = os.getenv("BRSMM_API_URL")
 
     # ===============================
+    # 🔗 Integração com WHATSAPP
+    # ===============================
+    WHATSAPP_API_URL = os.getenv("WHATSAPP_API_URL")
+    WHATSAPP_PHONE_NUMBER_ID = os.getenv("WHATSAPP_PHONE_NUMBER_ID")
+    WHATSAPP_ACCESS_TOKEN = os.getenv("WHATSAPP_ACCESS_TOKEN")
+
+    # ===============================
+    # 🔗 Integração com TWILIO
+    # ===============================
+    TWILIO_ACCOUNT_SID_PRODUCAO = os.getenv("TWILIO_ACCOUNT_SID_PRODUCAO")
+    TWILIO_AUTH_TOKEN_PRODUCAO = os.getenv("TWILIO_AUTH_TOKEN_PRODUCAO")
+    TWILIO_ACCOUNT_SID_DEVELOP = os.getenv("TWILIO_ACCOUNT_SID_DEVELOP")
+    TWILIO_AUTH_TOKEN_DEVELOP = os.getenv("TWILIO_AUTH_TOKEN_DEVELOP")
+    TWILIO_WHATSAPP_NUMBER_PRODUCAO = os.getenv("TWILIO_WHATSAPP_NUMBER_PRODUCAO")
+    TWILIO_WHATSAPP_NUMBER_DEVELOP = os.getenv("TWILIO_WHATSAPP_NUMBER_DEVELOP")
+
+    # ===============================
     # 📊 Google Sheets
     # ===============================
     DEFAULT_CREDENTIALS_PATH = os.path.join(
@@ -64,7 +81,7 @@ class Config:
     # ===============================
     # 🌐 API de Consulta
     # ===============================
-    API_TOKEN = os.getenv("API_TOKEN", "sua_chave")
+    API_TOKEN = os.getenv("API_TOKEN", "01f53a010c4db99965eff31001cf41ef")
     API_URL = os.getenv("API_URL", "https://datawolf.tech/api.php")
 
     # ===============================
@@ -94,9 +111,8 @@ class Config:
     TEST_USER_CARGO_CHEFE = os.getenv("TEST_USER_CARGO_CHEFE")
     TEST_USER_ID_OPERADOR = os.getenv("TEST_USER_ID_OPERADOR")
     TEST_USER_CARGO_OPERADOR = os.getenv("TEST_USER_CARGO_OPERADOR")
-    #TEST_USER_ID_GERENTE = os.getenv("TEST_USER_ID_GERENTE")
-    #TEST_USER_CARGO_GERENTE = os.getenv("TEST_USER_CARGO_GERENTE")
-
+    # TEST_USER_ID_GERENTE = os.getenv("TEST_USER_ID_GERENTE")
+    # TEST_USER_CARGO_GERENTE = os.getenv("TEST_USER_CARGO_GERENTE")
 
     # ===============================
     # 🔐 Credenciais WolfBuscas (opcional)

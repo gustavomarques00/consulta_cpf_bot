@@ -7,7 +7,10 @@ def test_brsmm_services(token, base_url):
     """
     Testa o endpoint de serviços do BRSMM.
     """
-    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {token['token']}"}
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {token['token']}",
+    }
     resp = requests.get(f"{base_url}/api/brsmm/services", headers=headers)
     assert resp.status_code == 200
     data = resp.json()
@@ -19,7 +22,10 @@ def test_brsmm_balance(token, base_url):
     """
     Testa o endpoint de saldo do BRSMM.
     """
-    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {token['token']}"}
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {token['token']}",
+    }
     resp = requests.get(f"{base_url}/api/brsmm/balance", headers=headers)
     assert resp.status_code == 200
     assert "balance" in resp.json()

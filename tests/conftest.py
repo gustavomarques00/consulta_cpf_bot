@@ -4,6 +4,8 @@ import pytest
 from dotenv import load_dotenv
 import os
 
+from core.db import get_db_connection
+
 # 🔄 Carrega as variáveis do .env para uso nos testes
 load_dotenv()
 
@@ -13,6 +15,15 @@ BASE_URL = os.getenv("BASE_URL", "http://127.0.0.1:5000")
 # ================================
 # FIXTURES PARA O TESTE
 # ================================
+
+@pytest.fixture(scope="module", autouse=True)
+def setup_database():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM refresh_tokens;")
+    conn.commit()
+    cursor.close()
+    conn.close()
 
 
 @pytest.fixture(scope="module")
@@ -25,6 +36,13 @@ def base_url() -> str:
 def headers() -> dict:
     """Cabeçalhos padrão para testes de API (Content-Type JSON)."""
     return {"Content-Type": "application/json"}
+
+@pytest.fixture
+def user_data():
+    """
+    Fixture para fornecer dados de usuário comuns para os testes.
+    """
+    return {"user_id": 123, "cargo": "Operador"}
 
 
 @pytest.fixture(scope="module")
@@ -39,7 +57,7 @@ def token(headers) -> dict:
     assert cargo, "❌ TEST_USER_CARGO_ADM não configurado no .env"
 
     response = requests.post(
-        f"{BASE_URL}/api/generate-token",
+        f"{BASE_URL}/admin/generate-token",
         json={"user_id": int(user_id), "cargo": cargo},
         headers=headers,
     )
@@ -60,7 +78,7 @@ def invalid_token(headers) -> str:
 
     # Gera um token válido
     response = requests.post(
-        f"{BASE_URL}/api/generate-token",
+        f"{BASE_URL}/admin/generate-token",
         json={"user_id": int(user_id), "cargo": cargo},
         headers=headers,
     )
@@ -85,7 +103,7 @@ def refresh_token(headers) -> str:
     assert cargo, "❌ TEST_USER_CARGO_ADM não configurado no .env"
 
     response = requests.post(
-        f"{BASE_URL}/api/generate-token",
+        f"{BASE_URL}/admin/generate-token",
         json={"user_id": int(user_id), "cargo": cargo},
         headers=headers,
     )
@@ -93,6 +111,7 @@ def refresh_token(headers) -> str:
         response.status_code == 200
     ), f"❌ Erro ao gerar refresh_token: {response.text}"
     return response.json()["refresh_token"]
+
 
 # Adicionando fixture específica para token de Chefe de Equipe
 @pytest.fixture(scope="module")
@@ -108,11 +127,13 @@ def chefe_token(headers) -> str:
     assert cargo, "❌ TEST_USER_CARGO_CHEFE não configurado no .env"
 
     response = requests.post(
-        f"{BASE_URL}/api/generate-token",
+        f"{BASE_URL}/admin/generate-token",
         json={"user_id": int(user_id), "cargo": cargo},
         headers=headers,
     )
-    assert response.status_code == 200, f"❌ Erro ao gerar token de Chefe de Equipe: {response.text}"
+    assert (
+        response.status_code == 200
+    ), f"❌ Erro ao gerar token de Chefe de Equipe: {response.text}"
     return response.json()["token"]
 
 
@@ -129,12 +150,15 @@ def operador_token(headers) -> str:
     assert cargo, "❌ TEST_USER_CARGO_OPERADOR não configurado no .env"
 
     response = requests.post(
-        f"{BASE_URL}/api/generate-token",
+        f"{BASE_URL}/admin/generate-token",
         json={"user_id": int(user_id), "cargo": cargo},
         headers=headers,
     )
-    assert response.status_code == 200, f"❌ Erro ao gerar token de Operador: {response.text}"
+    assert (
+        response.status_code == 200
+    ), f"❌ Erro ao gerar token de Operador: {response.text}"
     return response.json()["token"]
+
 
 
 # ================================
@@ -151,5 +175,3 @@ def mock_sheet_checker() -> MagicMock:
     mock.get_all_values.return_value = [["CPF"], ["12345678901"], ["10987654321"]]
     mock.delete_rows.return_value = None
     return mock
-
-

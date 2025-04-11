@@ -1,3 +1,4 @@
+from venv import logger
 from flask import request, jsonify  # type: ignore
 from functools import wraps
 import jwt  # type: ignore
@@ -14,18 +15,30 @@ def token_required(f):
     def decorated(*args, **kwargs):
         auth_header = request.headers.get("Authorization")
 
-        if not auth_header or not auth_header.startswith("Bearer "):
-            return jsonify({"error": "Token ausente ou inválido!"}), 401
+        # Verifica se o cabeçalho Authorization está presente
+        if not auth_header:
+            return jsonify({"error": "Token não fornecido!"}), 401
 
-        token = auth_header.split(" ")[1]
+        # Verifica se o cabeçalho começa com "Bearer "
+        if not auth_header.startswith("Bearer "):
+            return jsonify({"error": "Token inválido ou malformado!"}), 401
 
+        # Extrai o token do cabeçalho
+        token = auth_header.split("Bearer ")[-1].strip()
+
+        # Verifica se o token está presente
+        if not token:
+            return jsonify({"error": "Token inválido ou ausente"}), 401
+
+        # Verifica se o token está na lista de tokens revogados
         if is_token_blacklisted(token):
             return jsonify({"error": "Token revogado!"}), 401
 
         try:
+            # Decodifica o token JWT
             data = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-            request.user_id = data["user_id"]
-            request.cargo = data["cargo"]
+            request.user_id = data.get("user_id")
+            request.cargo = data.get("cargo")
         except jwt.ExpiredSignatureError:
             return jsonify({"error": "Token expirado!"}), 401
         except jwt.InvalidTokenError:
@@ -34,7 +47,6 @@ def token_required(f):
         return f(*args, **kwargs)
 
     return decorated
-
 
 def only_super_admin(f):
     @wraps(f)
@@ -66,15 +78,24 @@ def is_token_blacklisted(token):
     finally:
         conn.close()
 
-def permission_required(role):
+
+def permission_required(required_role):
     """
     Verifica se o usuário autenticado tem a permissão necessária.
-    :param role: O papel necessário para acessar a rota (ex: 'ADM', 'CHEFE DE EQUIPE', 'OPERADOR').
+    :param required_role: O papel necessário para acessar a rota (ex: 'ADM', 'CHEFE DE EQUIPE', 'OPERADOR').
     """
+
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
-            token = request.headers.get('Authorization').split("Bearer ")[-1]
+            auth_header = request.headers.get("Authorization")
+            if not auth_header:
+                return jsonify({"error": "Token não fornecido"}), 401
+
+            if not auth_header.startswith("Bearer "):
+                return jsonify({"error": "Token inválido ou malformado"}), 401
+
+            token = auth_header.split("Bearer ")[-1].strip()
             if not token:
                 return jsonify({"error": "Token não fornecido"}), 401
 
@@ -82,22 +103,34 @@ def permission_required(role):
             if not user_data:
                 return jsonify({"error": "Token inválido"}), 401
 
-            # Conectar ao banco de dados e buscar o cargo do usuário
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            cursor.execute("SELECT cargo FROM usuarios WHERE id = %s", (user_data["user_id"],))
-            user_role = cursor.fetchone()
+            user_id = user_data.get("user_id")
+            if not user_id:
+                return jsonify({"error": "Token inválido: ID do usuário não encontrado"}), 401
 
-            if user_role is None:
-                return jsonify({"error": "Usuário não encontrado"}), 404
+            try:
+                with get_db_connection() as conn:
+                    with conn.cursor() as cursor:
+                        cursor.execute(
+                            "SELECT cargo FROM usuarios WHERE id = %s", (user_id,)
+                        )
+                        user_role = cursor.fetchone()
 
-            cursor.close()
-            conn.close()
+                        if not user_role:
+                            return jsonify({"error": "Usuário não encontrado"}), 404
 
-            # Verificar se o cargo do usuário corresponde ao necessário
-            if user_role[0] != role:
-                return jsonify({"error": "Acesso negado"}), 403
+                        # Log para depuração
+                        logger.info(f"Cargo do usuário: {user_data.get('cargo')}, Cargo necessário: {required_role}")
+
+                        # Verificar se o cargo do usuário corresponde ao necessário
+                        if user_data.get("cargo") != required_role:
+                            return jsonify({"error": "Acesso negado: Permissão insuficiente"}), 403
+
+            except Exception as e:
+                logger.error(f"Erro ao verificar permissão: {str(e)}")
+                return jsonify({"error": "Erro interno no servidor"}), 500
 
             return f(*args, **kwargs)
+
         return decorated_function
+
     return decorator

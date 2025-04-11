@@ -2,20 +2,6 @@ import pytest
 import jwt
 from utils import token as token_utils
 
-
-# ========================
-# FIXTURES E FUNÇÕES GLOBAIS
-# ========================
-
-
-@pytest.fixture
-def user_data():
-    """
-    Fixture para fornecer dados de usuário comuns para os testes.
-    """
-    return {"user_id": 123, "cargo": "Operador"}
-
-
 # ========================
 # TESTES DE TOKEN
 # ========================

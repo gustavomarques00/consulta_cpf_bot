@@ -1,133 +1,209 @@
 {
-    "info": {
-      "name": "Planos API - Gustavo",
-      "_postman_id": "e7b6fdbe-45f4-4cbe-bfbe-aaa888999999",
-      "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  "info": {
+    "name": "Saas da Juvo",
+    "_postman_id": "e7b6fdbe-45f4-4cbe-bfbe-aaa888999999",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:5000" },
+    { "key": "access_token", "value": "" },
+    { "key": "refresh_token", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Gustavo\",\n  \"email\": \"gustavo@email.com\",\n  \"telefone\": \"(11) 91234-5678\",\n  \"cargo\": \"ADM\",\n  \"senha\": \"Senha123!\",\n  \"confirmarSenha\": \"Senha123!\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/register" }
+          }
+        },
+        {
+          "name": "Generate Token",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": 4,\n  \"cargo\": \"ADM\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/admin/generate-token" }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Refresh-Token", "value": "{{refresh_token}}" }],
+            "url": { "raw": "{{base_url}}/admin/refresh-token" }
+          }
+        }
+      ]
     },
-    "variable": [
-      { "key": "base_url", "value": "http://localhost:5000" },
-      { "key": "access_token", "value": "" },
-      { "key": "refresh_token", "value": "" }
-    ],
-    "item": [
-      {
-        "name": "Auth",
-        "item": [
-          {
-            "name": "Register",
-            "request": {
-              "method": "POST",
-              "header": [{ "key": "Content-Type", "value": "application/json" }],
-              "body": {
-                "mode": "raw",
-                "raw": "{\n  \"nome\": \"Gustavo\",\n  \"email\": \"gustavo@email.com\",\n  \"telefone\": \"(11) 91234-5678\",\n  \"tipoUsuario\": \"ADM\",\n  \"senha\": \"Senha123!\",\n  \"confirmarSenha\": \"Senha123!\"\n}"
-              },
-              "url": { "raw": "{{base_url}}/register" }
-            }
-          },
-          {
-            "name": "Generate Token",
-            "request": {
-              "method": "POST",
-              "header": [{ "key": "Content-Type", "value": "application/json" }],
-              "body": {
-                "mode": "raw",
-                "raw": "{\n  \"user_id\": 4,\n  \"cargo\": \"ADM\"\n}"
-              },
-              "url": { "raw": "{{base_url}}/api/generate-token" }
-            }
-          },
-          {
-            "name": "Refresh Token",
-            "request": {
-              "method": "POST",
-              "header": [{ "key": "Refresh-Token", "value": "{{refresh_token}}" }],
-              "url": { "raw": "{{base_url}}/api/refresh-token" }
+    {
+      "name": "Planos",
+      "item": [
+        {
+          "name": "Listar planos",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/admin/plans" }
+          }
+        },
+        {
+          "name": "Ver plano do usuário",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": { "raw": "{{base_url}}/admin/user-plans" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "SuperAdmin Test",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": { "raw": "{{base_url}}/admin/superadmin/test" }
+          }
+        },
+        {
+          "name": "Revogar Access Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{access_token}}\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/admin/revoke-token" }
+          }
+        },
+        {
+          "name": "Revogar Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{refresh_token}}\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/admin/admin/revoke-refresh-token" }
+          }
+        },
+        {
+          "name": "Listar Refresh Tokens (paginação)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": {
+              "raw": "{{base_url}}/admin/admin/refresh-tokens?page=1&limit=5"
             }
           }
-        ]
-      },
-      {
-        "name": "Planos",
-        "item": [
-          {
-            "name": "Listar planos",
-            "request": {
-              "method": "GET",
-              "url": { "raw": "{{base_url}}/api/plans" }
-            }
-          },
-          {
-            "name": "Ver plano do usuário",
-            "request": {
-              "method": "GET",
-              "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
-              "url": { "raw": "{{base_url}}/api/user-plans" }
-            }
+        },
+        {
+          "name": "Listar Tokens Revogados",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": { "raw": "{{base_url}}/admin/admin/token-blacklist" }
           }
-        ]
-      },
-      {
-        "name": "Admin",
-        "item": [
-          {
-            "name": "SuperAdmin Test",
-            "request": {
-              "method": "GET",
-              "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
-              "url": { "raw": "{{base_url}}/api/superadmin/test" }
-            }
-          },
-          {
-            "name": "Revogar Access Token",
-            "request": {
-              "method": "POST",
-              "header": [
-                { "key": "Authorization", "value": "Bearer {{access_token}}" },
-                { "key": "Content-Type", "value": "application/json" }
-              ],
-              "body": {
-                "mode": "raw",
-                "raw": "{\n  \"token\": \"{{access_token}}\"\n}"
-              },
-              "url": { "raw": "{{base_url}}/api/revoke-token" }
-            }
-          },
-          {
-            "name": "Revogar Refresh Token",
-            "request": {
-              "method": "POST",
-              "header": [
-                { "key": "Authorization", "value": "Bearer {{access_token}}" },
-                { "key": "Content-Type", "value": "application/json" }
-              ],
-              "body": {
-                "mode": "raw",
-                "raw": "{\n  \"token\": \"{{refresh_token}}\"\n}"
-              },
-              "url": { "raw": "{{base_url}}/api/admin/revoke-refresh-token" }
-            }
-          },
-          {
-            "name": "Listar Refresh Tokens (paginação)",
-            "request": {
-              "method": "GET",
-              "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
-              "url": {
-                "raw": "{{base_url}}/api/admin/refresh-tokens?page=1&limit=5"
-              }
-            }
-          },
-          {
-            "name": "Listar Tokens Revogados",
-            "request": {
-              "method": "GET",
-              "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
-              "url": { "raw": "{{base_url}}/api/admin/token-blacklist" }
-            }
+        }
+      ]
+    },
+    {
+      "name": "Chefe de Equipe",
+      "item": [
+        {
+          "name": "Reatribuir Dados",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"operador_origem_id\": 7,\n  \"operador_destino_id\": 8,\n  \"quantidade_dados\": 50\n}"
+            },
+            "url": { "raw": "{{base_url}}/admin/chefe/reatribuir-dados" }
           }
-        ]
-      }
-    ]
-  }
-  
+        },
+        {
+          "name": "Notificar Operador",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"operador_id\": 7,\n  \"mensagem\": \"Você recebeu novos dados para processar.\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/admin/chefe/notificar-operador" }
+          }
+        },
+        {
+          "name": "Listar Notificações",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": { "raw": "{{base_url}}/admin/chefe/notificacoes" }
+          }
+        },
+        {
+          "name": "Marcar Notificação como Lida",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": { "raw": "{{base_url}}/admin/chefe/notificacoes/1/marcar-lida" }
+          }
+        },
+        {
+          "name": "Testar Permissão de Operador",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"operador_id\": 7,\n  \"mensagem\": \"Teste de permissão.\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/notificacoes/notificar-operador" }
+          }
+        },
+        {
+          "name": "Marcar Notificação Inexistente como Lida",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{base_url}}/notificacoes/999/marcar-lida" }
+          }
+        }
+      ]
+    }
+  ]
+}

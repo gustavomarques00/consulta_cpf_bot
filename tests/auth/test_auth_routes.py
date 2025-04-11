@@ -1,35 +1,7 @@
 import pytest
 import requests
-from dotenv import load_dotenv
 import os
-from core.db import get_db_connection
-
-# ========================================
-# CONFIGURAÇÃO INICIAL E FIXTURES GLOBAIS
-# ========================================
-
-# Carrega as variáveis de ambiente do .env
-load_dotenv()
-BASE_URL = os.getenv("BASE_URL", "http://127.0.0.1:5000")
-
-
-@pytest.fixture(scope="module", autouse=True)
-def setup_database():
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM refresh_tokens;")
-    conn.commit()
-    cursor.close()
-    conn.close()
-
-
-@pytest.fixture
-def headers():
-    """
-    Headers padrão para requisições JSON.
-    """
-    return {"Content-Type": "application/json"}
-
+from tests.conftest import BASE_URL
 
 # ========================================
 # TESTES DE GERAÇÃO, RENOVAÇÃO E REVOGAÇÃO
@@ -41,13 +13,13 @@ def test_generate_and_refresh_token(headers):
     🔄 Gera um refresh_token e o utiliza para obter novo access_token.
 
     Fluxo testado:
-    - Chama /api/generate-token para gerar tokens
-    - Usa o refresh_token na rota /api/refresh-token
+    - Chama /admin/generate-token para gerar tokens
+    - Usa o refresh_token na rota /admin/refresh-token
     - Verifica se um novo token é retornado corretamente
     """
     # Geração dos tokens
     resp = requests.post(
-        f"{BASE_URL}/api/generate-token",
+        f"{BASE_URL}/admin/generate-token",
         json={"user_id": 4, "cargo": "ADM"},
         headers=headers,
     )
@@ -59,7 +31,7 @@ def test_generate_and_refresh_token(headers):
     # Renovação usando refresh_token
     refresh_headers = {"Refresh-Token": tokens["refresh_token"]}
     refresh_resp = requests.post(
-        f"{BASE_URL}/api/refresh-token", headers=refresh_headers
+        f"{BASE_URL}/admin/refresh-token", headers=refresh_headers
     )
 
     assert (
@@ -70,7 +42,7 @@ def test_generate_and_refresh_token(headers):
 
 def test_revoke_token(headers):
     """
-    ❌ Testa a revogação manual de um access_token pela rota /api/revoke-token.
+    ❌ Testa a revogação manual de um access_token pela rota /admin/revoke-token.
 
     Verifica:
     - Se o token pode ser revogado com sucesso
@@ -78,7 +50,7 @@ def test_revoke_token(headers):
     """
     # Geração de token
     resp = requests.post(
-        f"{BASE_URL}/api/generate-token",
+        f"{BASE_URL}/admin/generate-token",
         json={"user_id": 4, "cargo": "ADM"},
         headers=headers,
     )
@@ -92,7 +64,7 @@ def test_revoke_token(headers):
     payload = {"token": access_token}
 
     revoke_resp = requests.post(
-        f"{BASE_URL}/api/revoke-token", json=payload, headers=auth_headers
+        f"{BASE_URL}/admin/revoke-token", json=payload, headers=auth_headers
     )
 
     assert revoke_resp.status_code == 200
@@ -110,7 +82,7 @@ def test_revoke_refresh_token(headers):
     """
     # Geração de tokens
     response = requests.post(
-        f"{BASE_URL}/api/generate-token",
+        f"{BASE_URL}/admin/generate-token",
         json={"user_id": 4, "cargo": "ADM"},
         headers=headers,
     )
@@ -130,7 +102,7 @@ def test_revoke_refresh_token(headers):
 
     # Requisição para revogar o refresh_token
     revoke_resp = requests.post(
-        f"{BASE_URL}/api/admin/revoke-refresh-token",
+        f"{BASE_URL}/admin/revoke-refresh-token",
         json=payload,
         headers=admin_headers,
     )
@@ -149,7 +121,7 @@ def test_list_refresh_tokens_paginated(headers):
     """
     # Geração de token ADM
     resp = requests.post(
-        f"{BASE_URL}/api/generate-token",
+        f"{BASE_URL}/admin/generate-token",
         json={"user_id": 4, "cargo": "ADM"},
         headers=headers,
     )
@@ -163,7 +135,7 @@ def test_list_refresh_tokens_paginated(headers):
 
     # Requisição para listagem de tokens
     resp = requests.get(
-        f"{BASE_URL}/api/admin/refresh-tokens", headers=headers_auth, params=params
+        f"{BASE_URL}/admin/refresh-tokens", headers=headers_auth, params=params
     )
     assert resp.status_code == 200, f"Falha ao buscar tokens: {resp.text}"
     assert "data" in resp.json(), "Resposta não contém 'data'"

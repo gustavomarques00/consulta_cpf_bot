@@ -1,7 +1,3 @@
-# tests/test_token.py
-
-# Importa as bibliotecas necessárias
-import datetime
 import pytest
 import jwt
 from utils import token as token_utils  # Importa o módulo de utilitários de token

@@ -1,12 +1,15 @@
 import datetime
-from flask import Blueprint, jsonify, request # type: ignore
+from multiprocessing.connection import Client
+from flask import Blueprint, jsonify, request  # type: ignore
 from middlewares.auth_middleware import permission_required, token_required
-from flasgger import swag_from # type: ignore
+from flasgger import swag_from  # type: ignore
 from core.db import get_db_connection
+from core.config import Config
 
-chefe_bp = Blueprint("chefe", __name__, url_prefix="/api/chefe")
+operacaoes_bp = Blueprint("operacaoes", __name__, url_prefix="/operacaoes")
 
-@chefe_bp.route("/operadores", methods=["GET"])
+
+@operacaoes_bp.route("/operadores", methods=["GET"])
 @token_required
 @permission_required("CHEFE DE EQUIPE")
 @swag_from(
@@ -21,8 +24,16 @@ chefe_bp = Blueprint("chefe", __name__, url_prefix="/api/chefe")
                     "application/json": {
                         "example": {
                             "operadores": [
-                                {"id": 1, "nome": "Operador 1", "email": "operador1@example.com"},
-                                {"id": 2, "nome": "Operador 2", "email": "operador2@example.com"},
+                                {
+                                    "id": 1,
+                                    "nome": "Operador 1",
+                                    "email": "operador1@example.com",
+                                },
+                                {
+                                    "id": 2,
+                                    "nome": "Operador 2",
+                                    "email": "operador2@example.com",
+                                },
                             ]
                         }
                     }
@@ -56,7 +67,8 @@ def listar_operadores():
 
     return jsonify({"operadores": operadores}), 200
 
-@chefe_bp.route("/distribuir-dados", methods=["POST"])
+
+@operacaoes_bp.route("/distribuir-dados", methods=["POST"])
 @permission_required("CHEFE DE EQUIPE")
 @swag_from(
     {
@@ -81,7 +93,6 @@ def listar_operadores():
         ],
     }
 )
-
 @token_required
 def distribuir_dados():
     """
@@ -93,14 +104,25 @@ def distribuir_dados():
     quantidade_dados = data.get("quantidade_dados")
 
     if not operador_id or not quantidade_dados:
-        return jsonify({"error": "operador_id e quantidade_dados são obrigatórios"}), 400
-    
+        return (
+            jsonify({"error": "operador_id e quantidade_dados são obrigatórios"}),
+            400,
+        )
+
     # Validação de quantidade
     if quantidade_dados <= 0:
-        return jsonify({"error": "A quantidade de dados deve ser um número positivo"}), 400
-    
-    if quantidade_dados > 500:  # Definindo um limite máximo de 1000 dados por distribuição
-        return jsonify({"error": "Não é possível distribuir mais de 150 dados por vez"}), 400
+        return (
+            jsonify({"error": "A quantidade de dados deve ser um número positivo"}),
+            400,
+        )
+
+    if (
+        quantidade_dados > 500
+    ):  # Definindo um limite máximo de 1000 dados por distribuição
+        return (
+            jsonify({"error": "Não é possível distribuir mais de 150 dados por vez"}),
+            400,
+        )
 
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
@@ -114,7 +136,7 @@ def distribuir_dados():
         cursor.close()
         conn.close()
         return jsonify({"error": "Operador não associado ao Chefe de Equipe"}), 403
-    
+
     # Verifica o total de dados já distribuídos ao operador
     cursor.execute(
         """
@@ -122,19 +144,26 @@ def distribuir_dados():
         FROM distribuicao_dados
         WHERE operador_id = %s
         """,
-        (operador_id,)
+        (operador_id,),
     )
     resultado = cursor.fetchone()
-    total_atual = resultado["total_restante"] if resultado and resultado["total_restante"] else 0
-    
+    total_atual = (
+        resultado["total_restante"] if resultado and resultado["total_restante"] else 0
+    )
+
     # Verifica se o total com a nova distribuição não excede o limite por operador
     limite_por_operador = 5000  # Limite máximo de dados não processados por operador
     if total_atual + quantidade_dados > limite_por_operador:
         cursor.close()
         conn.close()
-        return jsonify({
-            "error": f"Limite excedido. O operador já possui {total_atual} dados pendentes. Limite máximo: {limite_por_operador}"
-        }), 400
+        return (
+            jsonify(
+                {
+                    "error": f"Limite excedido. O operador já possui {total_atual} dados pendentes. Limite máximo: {limite_por_operador}"
+                }
+            ),
+            400,
+        )
 
     # Insere ou atualiza a distribuição de dados (código existente)
     cursor.execute(
@@ -154,7 +183,7 @@ def distribuir_dados():
     return jsonify({"message": "Dados distribuídos com sucesso!"}), 200
 
 
-@chefe_bp.route("/progresso-operadores", methods=["GET"])
+@operacaoes_bp.route("/progresso-operadores", methods=["GET"])
 @permission_required("CHEFE DE EQUIPE")
 @swag_from(
     {
@@ -168,8 +197,18 @@ def distribuir_dados():
                     "application/json": {
                         "example": {
                             "progresso": [
-                                {"operador_id": 1, "nome": "Operador 1", "dados_distribuidos": 100, "dados_restantes": 50},
-                                {"operador_id": 2, "nome": "Operador 2", "dados_distribuidos": 200, "dados_restantes": 30},
+                                {
+                                    "operador_id": 1,
+                                    "nome": "Operador 1",
+                                    "dados_distribuidos": 100,
+                                    "dados_restantes": 50,
+                                },
+                                {
+                                    "operador_id": 2,
+                                    "nome": "Operador 2",
+                                    "dados_distribuidos": 200,
+                                    "dados_restantes": 30,
+                                },
                             ]
                         }
                     }
@@ -205,61 +244,71 @@ def progresso_operadores():
     return jsonify({"progresso": progresso}), 200
 
 
-@chefe_bp.route("/relatorio-desempenho", methods=["GET"])
+@operacaoes_bp.route("/relatorio-desempenho", methods=["GET"])
 @permission_required("CHEFE DE EQUIPE")
-@swag_from({
-    "tags": ["Chefe de Equipe"],
-    "summary": "Relatório de Desempenho dos Operadores",
-    "description": "Fornece um relatório detalhado do desempenho dos operadores associados ao Chefe de Equipe.",
-    "parameters": [
-        {
-            "name": "periodo",
-            "in": "query",
-            "type": "string",
-            "required": False,
-            "description": "Período do relatório: 'hoje', 'semana', 'mes'. Padrão é 'semana'.",
-        },
-        {
-            "name": "operador_id",
-            "in": "query",
-            "type": "integer",
-            "required": False,
-            "description": "ID do operador específico (opcional)"
-        }
-    ],
-    "responses": {
-        200: {
-            "description": "Relatório de desempenho dos operadores.",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "periodo": "semana",
-                        "data_inicio": "2023-04-01",
-                        "data_fim": "2023-04-07",
-                        "desempenho": [
-                            {
-                                "operador_id": 1,
-                                "nome": "Operador 1",
-                                "email": "operador1@example.com",
-                                "dados_processados": 150,
-                                "dados_pendentes": 50,
-                                "eficiencia": 75.0,
-                                "tempo_medio_processamento": "00:10:30",
-                                "detalhes_diarios": [
-                                    {"data": "2023-04-01", "processados": 30, "tempo_processamento": "00:08:45"},
-                                    {"data": "2023-04-02", "processados": 25, "tempo_processamento": "00:09:20"}
-                                ]
-                            }
-                        ]
+@swag_from(
+    {
+        "tags": ["Chefe de Equipe"],
+        "summary": "Relatório de Desempenho dos Operadores",
+        "description": "Fornece um relatório detalhado do desempenho dos operadores associados ao Chefe de Equipe.",
+        "parameters": [
+            {
+                "name": "periodo",
+                "in": "query",
+                "type": "string",
+                "required": False,
+                "description": "Período do relatório: 'hoje', 'semana', 'mes'. Padrão é 'semana'.",
+            },
+            {
+                "name": "operador_id",
+                "in": "query",
+                "type": "integer",
+                "required": False,
+                "description": "ID do operador específico (opcional)",
+            },
+        ],
+        "responses": {
+            200: {
+                "description": "Relatório de desempenho dos operadores.",
+                "content": {
+                    "application/json": {
+                        "example": {
+                            "periodo": "semana",
+                            "data_inicio": "2023-04-01",
+                            "data_fim": "2023-04-07",
+                            "desempenho": [
+                                {
+                                    "operador_id": 1,
+                                    "nome": "Operador 1",
+                                    "email": "operador1@example.com",
+                                    "dados_processados": 150,
+                                    "dados_pendentes": 50,
+                                    "eficiencia": 75.0,
+                                    "tempo_medio_processamento": "00:10:30",
+                                    "detalhes_diarios": [
+                                        {
+                                            "data": "2023-04-01",
+                                            "processados": 30,
+                                            "tempo_processamento": "00:08:45",
+                                        },
+                                        {
+                                            "data": "2023-04-02",
+                                            "processados": 25,
+                                            "tempo_processamento": "00:09:20",
+                                        },
+                                    ],
+                                }
+                            ],
+                        }
                     }
-                }
-            }
+                },
+            },
+            403: {
+                "description": "Acesso negado. O usuário não tem permissão para acessar esta rota."
+            },
         },
-        403: {
-            "description": "Acesso negado. O usuário não tem permissão para acessar esta rota."
-        }
     }
-})
+)
 @token_required
 def relatorio_desempenho():
     """
@@ -268,7 +317,7 @@ def relatorio_desempenho():
     chefe_id = request.user_id
     periodo = request.args.get("periodo", "semana")
     operador_id = request.args.get("operador_id")
-    
+
     # Definir intervalo de datas baseado no período
     hoje = datetime.now().date()
     if periodo == "hoje":
@@ -280,23 +329,25 @@ def relatorio_desempenho():
         if hoje.month == 12:
             data_fim = datetime(hoje.year + 1, 1, 1).date() - datetime.timedelta(days=1)
         else:
-            data_fim = datetime(hoje.year, hoje.month + 1, 1).date() - datetime.timedelta(days=1)
+            data_fim = datetime(
+                hoje.year, hoje.month + 1, 1
+            ).date() - datetime.timedelta(days=1)
     else:  # semana (padrão)
         # Segunda-feira da semana atual
         data_inicio = hoje - datetime.timedelta(days=hoje.weekday())
         # Domingo da semana atual
         data_fim = data_inicio + datetime.timedelta(days=6)
-    
+
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-    
+
     # Filtro de operador específico, se fornecido
     operador_filter = ""
     params = [chefe_id]
     if operador_id:
         operador_filter = " AND dd.operador_id = %s"
         params.append(operador_id)
-    
+
     # Consulta para obter dados de desempenho
     query = f"""
     SELECT 
@@ -321,13 +372,14 @@ def relatorio_desempenho():
     JOIN usuarios u ON dd.operador_id = u.id
     WHERE dd.chefe_id = %s{operador_filter}
     """
-    
+
     cursor.execute(query, [data_inicio, data_fim] + params)
     resultados = cursor.fetchall()
-    
+
     # Para cada operador, buscar detalhes diários
     for operador in resultados:
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT 
                 DATE(hr.data_registro) AS data,
                 COUNT(hr.id) AS registros_processados,
@@ -337,11 +389,13 @@ def relatorio_desempenho():
             AND DATE(hr.data_registro) BETWEEN %s AND %s
             GROUP BY DATE(hr.data_registro)
             ORDER BY data
-        """, [operador["operador_id"], data_inicio, data_fim])
-        
+        """,
+            [operador["operador_id"], data_inicio, data_fim],
+        )
+
         detalhes_diarios = cursor.fetchall()
         operador["detalhes_diarios"] = detalhes_diarios
-        
+
         # Converter para formato HH:MM:SS
         if operador["tempo_medio_minutos"]:
             horas = int(operador["tempo_medio_minutos"] // 60)
@@ -349,16 +403,249 @@ def relatorio_desempenho():
             operador["tempo_medio_processamento"] = f"{horas:02d}:{minutos:02d}:00"
         else:
             operador["tempo_medio_processamento"] = "00:00:00"
-        
+
         # Remover campo temporário
         del operador["tempo_medio_minutos"]
-    
+
     cursor.close()
     conn.close()
-    
-    return jsonify({
-        "periodo": periodo,
-        "data_inicio": data_inicio.strftime("%Y-%m-%d"),
-        "data_fim": data_fim.strftime("%Y-%m-%d"),
-        "desempenho": resultados
-    }), 200
+
+    return (
+        jsonify(
+            {
+                "periodo": periodo,
+                "data_inicio": data_inicio.strftime("%Y-%m-%d"),
+                "data_fim": data_fim.strftime("%Y-%m-%d"),
+                "desempenho": resultados,
+            }
+        ),
+        200,
+    )
+
+
+@operacaoes_bp.route("/historico-distribuicao", methods=["GET"])
+@permission_required("CHEFE DE EQUIPE")
+@swag_from(
+    {
+        "tags": ["Chefe de Equipe"],
+        "summary": "Histórico de Distribuição de Dados",
+        "description": "Lista o histórico de distribuições realizadas pelo Chefe de Equipe para seus Operadores.",
+        "responses": {
+            200: {
+                "description": "Histórico de distribuições realizadas.",
+                "content": {
+                    "application/json": {
+                        "example": {
+                            "historico": [
+                                {
+                                    "data_distribuicao": "2023-04-07",
+                                    "operador_id": 1,
+                                    "nome_operador": "Operador 1",
+                                    "dados_distribuidos": 100,
+                                },
+                                {
+                                    "data_distribuicao": "2023-04-06",
+                                    "operador_id": 2,
+                                    "nome_operador": "Operador 2",
+                                    "dados_distribuidos": 150,
+                                },
+                            ]
+                        }
+                    }
+                },
+            },
+            403: {
+                "description": "Acesso negado. O usuário não tem permissão para acessar esta rota.",
+            },
+        },
+    }
+)
+@token_required
+def historico_distribuicao():
+    """
+    Lista o histórico de distribuições realizadas pelo Chefe de Equipe para seus Operadores.
+    """
+    chefe_id = request.user_id  # ID do Chefe de Equipe autenticado
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    # Consulta para obter o histórico de distribuições
+    cursor.execute(
+        """
+        SELECT 
+            dd.data_distribuicao,
+            u.id AS operador_id,
+            u.nome AS nome_operador,
+            dd.dados_distribuidos
+        FROM distribuicao_dados dd
+        JOIN usuarios u ON dd.operador_id = u.id
+        WHERE dd.chefe_id = %s
+        ORDER BY dd.data_distribuicao DESC
+        """,
+        (chefe_id,),
+    )
+    historico = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    return jsonify({"historico": historico}), 200
+
+
+@operacaoes_bp.route("/reatribuir-dados", methods=["POST"])
+@permission_required("CHEFE DE EQUIPE")
+@swag_from(
+    {
+        "tags": ["Chefe de Equipe"],
+        "summary": "Reatribuir Dados entre Operadores",
+        "description": "Permite ao Chefe de Equipe reatribuir dados não processados de um Operador para outro.",
+        "parameters": [
+            {
+                "name": "operador_origem_id",
+                "in": "query",
+                "type": "integer",
+                "required": True,
+                "description": "ID do Operador de origem dos dados.",
+            },
+            {
+                "name": "operador_destino_id",
+                "in": "query",
+                "type": "integer",
+                "required": True,
+                "description": "ID do Operador de destino dos dados.",
+            },
+            {
+                "name": "quantidade_dados",
+                "in": "query",
+                "type": "integer",
+                "required": True,
+                "description": "Quantidade de dados a ser reatribuída.",
+            },
+        ],
+        "responses": {
+            200: {
+                "description": "Reatribuição realizada com sucesso.",
+                "content": {
+                    "application/json": {
+                        "example": {
+                            "message": "✅ Dados reatribuídos com sucesso.",
+                            "operador_origem_id": 1,
+                            "operador_destino_id": 2,
+                            "quantidade_dados": 50,
+                        }
+                    }
+                },
+            },
+            400: {
+                "description": "Erro de validação ou dados insuficientes.",
+            },
+            403: {
+                "description": "Acesso negado. O usuário não tem permissão para acessar esta rota.",
+            },
+        },
+    }
+)
+@token_required
+def reatribuir_dados():
+    """
+    Permite ao Chefe de Equipe reatribuir dados não processados de um Operador para outro.
+    """
+    chefe_id = request.user_id
+    data = request.get_json()
+    operador_origem_id = data.get("operador_origem_id")
+    operador_destino_id = data.get("operador_destino_id")
+    quantidade_dados = data.get("quantidade_dados")
+
+    if not operador_origem_id or not operador_destino_id or not quantidade_dados:
+        return (
+            jsonify(
+                {
+                    "error": "operador_origem_id, operador_destino_id e quantidade_dados são obrigatórios"
+                }
+            ),
+            400,
+        )
+
+    if quantidade_dados <= 0:
+        return (
+            jsonify({"error": "A quantidade de dados deve ser um número positivo"}),
+            400,
+        )
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    # Verifica se o Operador de origem pertence ao Chefe de Equipe
+    cursor.execute(
+        "SELECT 1 FROM chefe_operadores WHERE chefe_id = %s AND operador_id = %s",
+        (chefe_id, operador_origem_id),
+    )
+    origem_valida = cursor.fetchone()
+    print(f"DEBUG: Operador de origem válido? {origem_valida}")
+
+    if not origem_valida:
+        cursor.close()
+        conn.close()
+        return (
+            jsonify({"error": "O Operador de origem não pertence ao Chefe de Equipe"}),
+            403,
+        )
+
+    # Verifica se o Operador de destino pertence ao Chefe de Equipe
+    cursor.execute(
+        "SELECT 1 FROM chefe_operadores WHERE chefe_id = %s AND operador_id = %s",
+        (chefe_id, operador_destino_id),
+    )
+    destino_valido = cursor.fetchone()
+    print(f"DEBUG: Operador de destino válido? {destino_valido}")
+
+    if not destino_valido:
+        cursor.close()
+        conn.close()
+        return (
+            jsonify({"error": "O Operador de destino não pertence ao Chefe de Equipe"}),
+            403,
+        )
+
+    # Verifica se o Operador de origem tem dados suficientes
+    cursor.execute(
+        "SELECT dados_restantes FROM distribuicao_dados WHERE operador_id = %s",
+        (operador_origem_id,),
+    )
+    origem_dados = cursor.fetchone()
+    print(f"DEBUG: Dados restantes do operador de origem: {origem_dados}")
+
+    if not origem_dados or origem_dados["dados_restantes"] < quantidade_dados:
+        cursor.close()
+        conn.close()
+        return (
+            jsonify({"error": "O Operador de origem não possui dados suficientes"}),
+            400,
+        )
+
+    # Atualiza os dados dos Operadores
+    cursor.execute(
+        "UPDATE distribuicao_dados SET dados_restantes = dados_restantes - %s WHERE operador_id = %s",
+        (quantidade_dados, operador_origem_id),
+    )
+    cursor.execute(
+        "UPDATE distribuicao_dados SET dados_restantes = dados_restantes + %s WHERE operador_id = %s",
+        (quantidade_dados, operador_destino_id),
+    )
+    conn.commit()
+
+    cursor.close()
+    conn.close()
+
+    return (
+        jsonify(
+            {
+                "message": "✅ Dados reatribuídos com sucesso.",
+                "operador_origem_id": operador_origem_id,
+                "operador_destino_id": operador_destino_id,
+                "quantidade_dados": quantidade_dados,
+            }
+        ),
+        200,
+    )
