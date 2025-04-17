@@ -1,20 +1,30 @@
 import re
+from utils.common import format_string_to_number  # Função centralizada
 
 # Cargos válidos
 VALID_USER_TYPES = ["ADM", "CHEFE DE EQUIPE", "OPERADOR"]
 
 
 def is_valid_email(email: str) -> bool:
+    """
+    Valida se o email está no formato correto.
+    """
     regex = r"^\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,7}\b"
     return re.fullmatch(regex, email) is not None
 
 
 def is_valid_phone(phone: str) -> bool:
+    """
+    Valida se o telefone está no formato correto (ex: (99) 99999-9999).
+    """
     regex = r"^\(\d{2}\)\s?\d{4,5}-\d{4}$"
     return re.fullmatch(regex, phone) is not None
 
 
 def verificar_cpf_existente(sheet_data, cpf):
+    """
+    Verifica se o CPF já existe em uma planilha de dados.
+    """
     try:
         # Obtém todos os valores da aba 'Dados'
         dados = sheet_data.get_all_values()
@@ -27,6 +37,9 @@ def verificar_cpf_existente(sheet_data, cpf):
 
 
 def is_valid_password(password: str) -> bool:
+    """
+    Valida se a senha é forte (mínimo de 6 caracteres, com letras maiúsculas, números e símbolos).
+    """
     return (
         len(password) >= 6
         and re.search(r"[A-Z]", password)
@@ -36,9 +49,11 @@ def is_valid_password(password: str) -> bool:
 
 
 def validar_formato_cpf(cpf: str) -> bool:
-    """Valida se o CPF tem formato correto e é matematicamente válido."""
+    """
+    Valida se o CPF tem formato correto e é matematicamente válido.
+    """
     # Remove todos os caracteres não numéricos
-    cpf = re.sub(r"\D", "", cpf)
+    cpf = format_string_to_number(cpf)  # Usa função centralizada
     print(f"CPF após remoção de caracteres não numéricos: {cpf}")
 
     # Verifica se o CPF tem 11 dígitos e se não é uma sequência repetitiva (como 111.111.111-11)
@@ -56,18 +71,25 @@ def validar_formato_cpf(cpf: str) -> bool:
 
 
 def traduzir_sexo(sexo):
-    """Traduz o valor do campo SEXO para formato legível."""
+    """
+    Traduz o valor do campo SEXO para formato legível.
+    """
     mapa = {"F": "Feminino", "M": "Masculino"}
     return mapa.get(sexo.upper(), "Indefinido")
 
 
 def is_celular(numero):
-    """Verifica se o número é um celular (9 no início do número local)."""
-    numero = "".join(filter(str.isdigit, numero))  # Remove não-dígitos
+    """
+    Verifica se o número é um celular (9 no início do número local).
+    """
+    numero = format_string_to_number(numero)  # Usa função centralizada
     return len(numero) >= 10 and numero[-9] == "9"
 
+
 def validate_user_data(email, telefone, senha, confirmar_senha, cargo):
-    """Valida os dados do usuário."""
+    """
+    Valida os dados do usuário.
+    """
     if senha != confirmar_senha:
         print("As senhas não coincidem!")
         return {"error": "As senhas não coincidem!"}, 400
@@ -92,14 +114,19 @@ def validate_user_data(email, telefone, senha, confirmar_senha, cargo):
         )
     return None
 
+
 def is_email_registered(cursor, email):
-    """Verifica se o email já está cadastrado no banco de dados."""
+    """
+    Verifica se o email já está cadastrado no banco de dados.
+    """
     cursor.execute("SELECT * FROM usuarios WHERE email = %s", (email,))
     return cursor.fetchone() is not None
 
 
 def insert_user(cursor, nome, email, telefone, cargo, hashed_senha):
-    """Insere um novo usuário no banco de dados."""
+    """
+    Insere um novo usuário no banco de dados.
+    """
     cursor.execute(
         """
         INSERT INTO usuarios (nome, email, telefone, cargo, senha)
@@ -108,9 +135,25 @@ def insert_user(cursor, nome, email, telefone, cargo, hashed_senha):
         (nome, email, telefone, cargo, hashed_senha),
     )
 
+
 def formatar_telefone(telefone: str) -> str:
     """
     Remove espaços, parênteses, traços e outros símbolos de um número de telefone,
     deixando apenas os números.
     """
-    return re.sub(r"\D", "", telefone)  # Remove tudo que não for número
+    return format_string_to_number(telefone)  # Usa função centralizada
+
+
+def consultar_api_mock(cpf: str) -> dict:
+    """
+    Simula a consulta à API para obter os dados do CPF.
+    Substitua por sua função real de consulta à API.
+    """
+    # Exemplo de dados simulados
+    return {
+        "nome": "João Silva",
+        "nascimento": "1990-01-01",
+        "sexo": "Masculino",
+        "renda": "3000",
+        "poder_aquisitivo": "Médio",
+    }

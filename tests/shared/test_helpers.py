@@ -1,18 +1,8 @@
 import pytest
-import requests
 from utils.validators import is_valid_email, validar_formato_cpf
-from services.google_sheets_service import (
-    remover_linha_checker,
-    obter_cpfs_da_aba_checker,
-)
-from tests.conftest import BASE_URL  # Importa diretamente do conftest.py
-
-# ================================
-# TESTES DE FUNÇÕES E INTEGRAÇÃO
-# ================================
 
 
-def test_remover_linha_checker(mock_sheet_checker):
+def test_remover_linha_checker(mock_google_sheets_service, mock_sheet_checker):
     """
     Testa a funcionalidade de remover uma linha específica da aba 'Checker' no Google Sheets.
     Simula a planilha com duas linhas de CPF após o cabeçalho.
@@ -21,18 +11,18 @@ def test_remover_linha_checker(mock_sheet_checker):
     # Simula os valores da planilha, incluindo cabeçalho e duas linhas de CPFs
     mock_sheet_checker.get_all_values.return_value = [
         ["CPF"],  # Cabeçalho (linha 1)
-        ["12345678901"],  # Linha 2 (deve ser removida)
+        ["48489517045"],  # Linha 2 (deve ser removida)
         ["10987654321"],  # Linha 3
     ]
 
-    # Chama a função para remover o CPF "12345678901"
-    remover_linha_checker(mock_sheet_checker, "12345678901")
+    # Chama o método para remover o CPF "48489517045"
+    mock_google_sheets_service.remover_linha_checker(mock_sheet_checker, "48489517045")
 
     # Verifica se a função delete_rows foi chamada com o índice correto (linha 2)
     mock_sheet_checker.delete_rows.assert_called_once_with(2)
 
 
-def test_obter_cpfs_da_aba_checker(mock_sheet_checker):
+def test_obter_cpfs_da_aba_checker(mock_google_sheets_service, mock_sheet_checker):
     """
     Testa a funcionalidade de obter todos os CPFs da aba 'Checker' no Google Sheets.
     Simula a planilha com 3 CPFs, ignorando o cabeçalho.
@@ -41,16 +31,16 @@ def test_obter_cpfs_da_aba_checker(mock_sheet_checker):
     # Simula os valores da planilha, incluindo cabeçalho e três linhas de CPFs
     mock_sheet_checker.get_all_values.return_value = [
         ["CPF"],  # Cabeçalho
-        ["12345678901"],  # Linha 2
+        ["48489517045"],  # Linha 2
         ["99988877766"],  # Linha 3
         ["45612378900"],  # Linha 4
     ]
 
-    # Chama a função para obter os CPFs
-    cpfs = obter_cpfs_da_aba_checker(mock_sheet_checker)
+    # Chama o método para obter os CPFs
+    cpfs = mock_google_sheets_service.obter_cpfs_da_aba_checker(mock_sheet_checker)
 
     # Verifica se os CPFs retornados estão corretos (sem o cabeçalho)
-    assert cpfs == ["12345678901", "99988877766", "45612378900"]
+    assert cpfs == ["48489517045", "99988877766", "45612378900"]
 
 
 def test_validar_cpf_formatado():

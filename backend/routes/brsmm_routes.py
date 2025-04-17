@@ -1,4 +1,3 @@
-import os
 import logging
 from flask import Blueprint, request, jsonify  # type: ignore
 from middlewares.auth_middleware import token_required
@@ -35,10 +34,13 @@ def listar_servicos():
     logger.info("Iniciando consulta para listar serviços BRSMM.")
     try:
         services = api.get_services()
+        if "error" in services:
+            logger.error(f"Erro ao buscar serviços: {services['error']}")
+            return jsonify({"error": services["error"]}), 500
         logger.info(f"Serviços encontrados: {len(services)}")
         return jsonify(services), 200
     except Exception as e:
-        logger.error(f"Erro ao buscar serviços: {str(e)}")
+        logger.error(f"Erro inesperado ao buscar serviços: {str(e)}")
         return jsonify({"error": f"Erro ao buscar serviços: {str(e)}"}), 500
 
 
@@ -59,8 +61,9 @@ def listar_servicos():
                         "link": {"type": "string"},
                         "service_id": {"type": "integer"},
                         "quantity": {"type": "integer"},
+                        "price_per_unit": {"type": "number"},
                     },
-                    "required": ["link", "service_id", "quantity"],
+                    "required": ["link", "service_id", "quantity", "price_per_unit"],
                 },
             }
         ],
@@ -72,7 +75,7 @@ def listar_servicos():
 )
 def criar_pedido():
     data = request.get_json()
-    required_fields = ["link", "service_id", "quantity"]
+    required_fields = ["link", "service_id", "quantity", "price_per_unit"]
     logger.info(f"Iniciando criação de pedido com os dados: {data}")
 
     # Validação de campos obrigatórios
@@ -89,11 +92,31 @@ def criar_pedido():
         return jsonify({"error": "Quantidade deve estar entre 50 e 10000"}), 400
 
     try:
+        # Criar pedido na API BRSMM
         response = api.add_order(
-            link=data["link"], service_id=data["service_id"], quantity=data["quantity"]
+            link=data["link"],
+            service_id=data["service_id"],
+            quantity=data["quantity"],
         )
+
+        if "error" in response:
+            logger.error(f"Erro ao criar pedido na API: {response['error']}")
+            return jsonify({"error": response["error"]}), 500
+
+        # Registrar pedido no banco de dados
+        preco_total = data["quantity"] * data["price_per_unit"]
+        api.registrar_pedido_usuario(
+            user_id=request.user_id,
+            pedido_api=response,
+            service_id=data["service_id"],
+            url=data["link"],
+            quantidade=data["quantity"],
+            preco_unitario=data["price_per_unit"],
+            preco_total=preco_total,
+        )
+
         logger.info(f"Pedido criado com sucesso: {response}")
-        return jsonify(response), 200 if "order" in response else 400
+        return jsonify(response), 200
     except Exception as e:
         logger.error(f"Erro ao criar pedido: {str(e)}")
         return jsonify({"error": f"Erro ao criar pedido: {str(e)}"}), 500
@@ -122,6 +145,9 @@ def consultar_status(order_id):
     logger.info(f"Iniciando consulta do status para o pedido {order_id}")
     try:
         response = api.get_order_status(order_id)
+        if "error" in response:
+            logger.error(f"Erro ao consultar status: {response['error']}")
+            return jsonify({"error": response["error"]}), 500
         logger.info(f"Status do pedido {order_id}: {response}")
         return jsonify(response), 200
     except Exception as e:
@@ -149,6 +175,9 @@ def consultar_saldo():
     logger.info("Iniciando consulta de saldo BRSMM.")
     try:
         balance = api.get_balance()
+        if "error" in balance:
+            logger.error(f"Erro ao consultar saldo: {balance['error']}")
+            return jsonify({"error": balance["error"]}), 500
         logger.info(f"Saldo encontrado: {balance}")
         return jsonify(balance), 200
     except Exception as e:

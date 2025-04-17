@@ -1,155 +1,146 @@
 import pytest
-import requests
-from tests.conftest import BASE_URL
-from venv import logger
+from backend.services.notification_service import NotificationService
+from core.config import Config
+from unittest.mock import patch, MagicMock
+
+# Instância do serviço de notificações
+notification_service = NotificationService()
 
 
-def test_notificar_operador_erro_interno(chefe_token, headers):
+def test_notificar_operador_erro_interno():
     """
-    Testa o envio de notificação para um operador quando ocorre um erro interno no servidor.
+    Testa o envio de notificação para um operador quando ocorre um erro interno.
+    Para simular o erro, forçamos uma exceção na obtenção da conexão com o banco.
     """
-    payload = {
-        "operador_id": 7,  # ID do operador válido
-        "mensagem": "Teste de erro interno.",  # Mensagem que aciona o erro interno
-    }
+    chefe_id = 1  # ID do chefe (presumivelmente válido)
+    operador_id = 7  # ID do operador válido
+    mensagem = "Teste de erro interno."
 
-    response = requests.post(
-        f"{BASE_URL}/notificacoes/notificar-operador",
-        json=payload,
-        headers={**headers, "Authorization": f"Bearer {chefe_token}"},
+    # Força uma exceção na função get_db_connection usada pelo serviço
+    with patch(
+        "backend.services.notification_service.get_db_connection",
+        side_effect=Exception("Erro simulado"),
+    ):
+        result, status = notification_service.notificar_operador(
+            chefe_id, operador_id, mensagem
+        )
+        assert status == 500, f"Esperado status 500, mas obteve {status}"
+        assert "error" in result, "Resposta não contém a chave 'error'"
+        assert "Erro ao salvar notificação no sistema interno:" in result["error"]
+
+
+def test_notificar_operador_sem_autorizacao():
+    """
+    Testa se o envio de notificação retorna erro quando o operador não está associado ao chefe.
+    """
+    chefe_id = 1
+    operador_id = 9999  # ID que não está associado
+    mensagem = "Teste de permissão."
+
+    result, status = notification_service.notificar_operador(
+        chefe_id, operador_id, mensagem
     )
-
-    # Verifica se o código de status é 500
-    assert response.status_code == 500, f"Esperado erro 500, mas obteve {response.status_code}. Resposta: {response.text}"
-
-    # Verifica se a mensagem de erro está presente na resposta
-    data = response.json()
-    assert "error" in data, "Resposta não contém a chave 'error'"
-    assert "Erro interno simulado para teste." in data["error"], "Mensagem de erro inesperada"
+    assert status == 403, f"Esperado status 403, mas obteve {status}"
+    assert "error" in result, "Resposta não contém a chave 'error'"
+    assert result["error"] == "Operador não associado ao Chefe de Equipe"
 
 
-def test_notificar_operador_sem_autorizacao(headers):
+def test_notificar_operador_payload_invalido():
     """
-    Testa o envio de notificação sem fornecer o token de autorização.
+    Testa o envio de notificação com payload inválido.
+    Caso os tipos estejam incorretos, o serviço retorna 403 com mensagem de erro.
     """
-    payload = {
-        "operador_id": 7,  # ID do operador válido
-        "mensagem": "Você recebeu novos dados para processar.",
-    }
-
-    response = requests.post(
-        f"{BASE_URL}/notificacoes/notificar-operador",
-        json=payload,
-        headers=headers,  # Sem o token de autorização
+    chefe_id = 1
+    result, status = notification_service.notificar_operador(
+        chefe_id, "invalid_id", 12345
     )
+    assert status == 403, f"Esperado status 403, mas obteve {status}"
+    assert "error" in result, "Resposta não contém a chave 'error'"
+    assert result["error"] == "Operador não associado ao Chefe de Equipe"
 
-    assert response.status_code == 401, f"Esperado erro 401, mas obteve {response.status_code}. Resposta: {response.text}"
-    data = response.json()
-    assert data["error"] == "Token não fornecido", "Mensagem de erro inesperada"
 
-
-def test_notificar_operador_payload_invalido(chefe_token, headers):
+def test_listar_notificacoes():
     """
-    Testa o envio de notificação com um payload inválido.
+    Testa a listagem das notificações de um operador.
     """
-    payload = {
-        "operador_id": "invalid_id",  # ID inválido
-        "mensagem": 12345,  # Mensagem inválida
-    }
+    operador_id = 7
+    result, status = notification_service.listar_notificacoes(operador_id)
+    assert status == 200, f"Erro ao listar notificações: status {status}"
+    assert "notificacoes" in result, "Resposta não contém a chave 'notificacoes'"
+    assert isinstance(
+        result["notificacoes"], list
+    ), "O campo 'notificacoes' não é uma lista"
 
-    response = requests.post(
-        f"{BASE_URL}/notificacoes/notificar-operador",
-        json=payload,
-        headers={**headers, "Authorization": f"Bearer {chefe_token}"},
+
+def test_marcar_notificacao_como_lida():
+    """
+    Testa a marcação de uma notificação como lida.
+    Cria uma notificação, marca-a como lida e depois a deleta.
+    """
+    chefe_id = 1
+    operador_id = 7
+    mensagem = "Teste para marcar como lida."
+
+    # Cria a notificação
+    criar_result, criar_status = notification_service.notificar_operador(
+        chefe_id, operador_id, mensagem
     )
+    assert criar_status == 200, f"Erro ao criar notificação: {criar_result}"
+    notificacao_id = criar_result.get("id")
+    assert notificacao_id, "ID da notificação não retornado"
 
-    assert response.status_code == 400, f"Esperado erro 400, mas obteve {response.status_code}. Resposta: {response.text}"
-    data = response.json()
-    assert "error" in data, "Resposta não contém a chave 'error'"
-    assert "Payload inválido" in data["error"], "Mensagem de erro inesperada para payload inválido"
-
-def test_listar_notificacoes(operador_token, headers):
-    """
-    Testa a listagem de notificações do operador autenticado.
-    """
-    response = requests.get(
-        f"{BASE_URL}/notificacoes/geral",
-        headers={**headers, "Authorization": f"Bearer {operador_token}"},
+    # Marca como lida
+    marcar_result, marcar_status = notification_service.marcar_notificacao_como_lida(
+        operador_id, notificacao_id
     )
+    assert (
+        marcar_status == 200
+    ), f"Erro ao marcar notificação como lida: {marcar_result}"
+    assert marcar_result.get("message") == "Notificação marcada como lida"
 
-    assert response.status_code == 200, f"Erro ao listar notificações: {response.text}"
-    data = response.json()
-    assert "notificacoes" in data, "Resposta não contém a chave 'notificacoes'"
-    assert isinstance(data["notificacoes"], list), "O campo 'notificacoes' não é uma lista"
-
-
-def test_marcar_notificacao_como_lida(chefe_token, operador_token, headers):
-    """
-    Testa a marcação de uma notificação como lida de forma dinâmica.
-    """
-    # Criar uma notificação para o teste usando o token do CHEFE DE EQUIPE
-    logger.info("Iniciando criação de notificação para o teste...")
-    criar_response = requests.post(
-        f"{BASE_URL}/notificacoes/notificar-operador",
-        headers={**headers, "Authorization": f"Bearer {chefe_token}"},
-        json={
-            "operador_id": 7,  # Certifique-se de que este ID corresponde a um operador existente no sistema
-            "mensagem": "Teste de notificação para marcar como lida."
-        },
+    # Deleta a notificação para limpeza
+    deletar_result, deletar_status = notification_service.deletar_notificacao(
+        chefe_id, notificacao_id
     )
-    print(f"Resposta da API ao criar notificação: {criar_response.json()}")  # Log para depuração
-    assert criar_response.status_code == 200, f"Erro ao criar notificação: {criar_response.text}. Verifique se o operador_id é válido e se o chefe_token tem permissão."
-    
-    notificacao_id = criar_response.json().get("id")
-    assert notificacao_id, "ID da notificação não retornado na criação."
-
-    # Testar a marcação da notificação como lida usando o token do OPERADOR
-    logger.info(f"Iniciando marcação da notificação {notificacao_id} como lida...")
-    response = requests.patch(
-        f"{BASE_URL}/notificacoes/{notificacao_id}/marcar-lida",
-        headers={**headers, "Authorization": f"Bearer {operador_token}"},
-    )
-    logger.info(f"Resposta da API ao marcar notificação como lida: {response.status_code}, {response.text}")
-    assert response.status_code == 200, f"Erro ao marcar notificação como lida: {response.text}"
-    data = response.json()
-    assert data["message"] == "Notificação marcada como lida"
-
-    # Limpar a notificação criada para o teste
-    logger.info(f"Iniciando exclusão da notificação {notificacao_id} criada para o teste...")
-    deletar_response = requests.delete(
-        f"{BASE_URL}/notificacoes/{notificacao_id}",
-        headers={**headers, "Authorization": f"Bearer {chefe_token}"},
-    )
-    logger.info(f"Resposta da API ao deletar notificação: {deletar_response.status_code}, {deletar_response.text}")
-    assert deletar_response.status_code == 200, f"Erro ao deletar notificação de teste: {deletar_response.text}. Verifique se o chefe_token tem permissão para deletar."
+    assert deletar_status == 200, f"Erro ao deletar notificação: {deletar_result}"
 
 
-def test_marcar_notificacao_inexistente_como_lida(operador_token, headers):
+def test_marcar_notificacao_inexistente_como_lida():
     """
     Testa a tentativa de marcar uma notificação inexistente como lida.
     """
-    notificacao_id = 999  # ID de uma notificação inexistente
-    print(f"notificacao_id: {notificacao_id}")  # Adicionando print para depuração
-    print(f"headers: {headers}")  # Adicionando print para depuração
-    response = requests.patch(
-        f"{BASE_URL}/notificacoes/{notificacao_id}/marcar-lida",
-        headers={**headers, "Authorization": f"Bearer {operador_token}"},
+    operador_id = 7
+    notificacao_id = 999  # ID inexistente
+    result, status = notification_service.marcar_notificacao_como_lida(
+        operador_id, notificacao_id
     )
-    print(f"operador_token: {operador_token}")  # Adicionando print para depuração
+    assert status == 404, f"Esperado status 404, mas obteve {status}"
+    assert "error" in result, "Resposta não contém a chave 'error'"
+    assert result["error"] == "Notificação não encontrada ou não pertence ao operador"
 
-    assert response.status_code == 404, f"Erro esperado ao marcar notificação inexistente: {response.text}"
-    data = response.json()
-    assert data["error"] == "Notificação não encontrada ou não pertence ao operador", f"Mensagem de erro inesperada: {data['error']}"
 
-def test_notificar_operador_sem_permissao(operador_token, headers):
+def test_notificar_operador_sem_permissao():
     """
-    Testa se um usuário sem a permissão 'CHEFE DE EQUIPE' é impedido de acessar a rota.
+    Testa se um chefe que não tem permissão para notificar determinada ação
+    tem a operação bloqueada. Simula que o operador não está associado.
     """
-    response = requests.post(
-        f"{BASE_URL}/notificacoes/notificar-operador",
-        headers={**headers, "Authorization": f"Bearer {operador_token}"},
-        json={"operador_id": 7, "mensagem": "Teste de permissão."},
-    )
-    assert response.status_code == 403
-    data = response.json()  # Chama o método para obter o JSON
-    assert data["error"] == "Acesso negado: Permissão insuficiente"
+    chefe_id = 1
+    operador_id = 8  # Supondo que o operador 8 não esteja associado ao chefe 1
+    mensagem = "Teste de permissão."
+
+    # Patch na função get_db_connection para simular que a consulta não encontrou associação
+    with patch(
+        "backend.services.notification_service.get_db_connection"
+    ) as mock_get_db_conn:
+        fake_conn = MagicMock()
+        fake_cursor = MagicMock()
+        fake_cursor.fetchone.return_value = None  # Simula ausência de associação
+        fake_conn.cursor.return_value = fake_cursor
+        mock_get_db_conn.return_value = fake_conn
+
+        result, status = notification_service.notificar_operador(
+            chefe_id, operador_id, mensagem
+        )
+        assert status == 403, f"Esperado status 403, mas obteve {status}"
+        assert "error" in result, "Resposta não contém 'error'"
+        assert result["error"] == "Operador não associado ao Chefe de Equipe"

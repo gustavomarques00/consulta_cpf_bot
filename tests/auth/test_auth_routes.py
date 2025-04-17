@@ -1,142 +1,103 @@
 import pytest
-import requests
-import os
-from tests.conftest import BASE_URL
+from services.token_service import TokenService
+from services.admin_service import AdminService
+from core.config import Config
+
+# Configurações para o TokenService
+JWT_SECRET = "defaultsecret"
+JWT_ALGORITHM = "HS256"
+token_service = TokenService(jwt_secret=JWT_SECRET, jwt_algorithm=JWT_ALGORITHM)
+
+# Configurações para o AdminService
+admin_service = AdminService()
 
 # ========================================
 # TESTES DE GERAÇÃO, RENOVAÇÃO E REVOGAÇÃO
 # ========================================
 
 
-def test_generate_and_refresh_token(headers):
+def test_generate_and_refresh_token():
     """
     🔄 Gera um refresh_token e o utiliza para obter novo access_token.
 
     Fluxo testado:
-    - Chama /admin/generate-token para gerar tokens
-    - Usa o refresh_token na rota /admin/refresh-token
-    - Verifica se um novo token é retornado corretamente
+    - Gera tokens usando o TokenService
+    - Usa o refresh_token para gerar um novo access_token
     """
-    # Geração dos tokens
-    resp = requests.post(
-        f"{BASE_URL}/admin/generate-token",
-        json={"user_id": 4, "cargo": "ADM"},
-        headers=headers,
-    )
-    assert resp.status_code == 200, f"Erro ao gerar token: {resp.text}"
-    tokens = resp.json()
-
-    assert "token" in tokens and "refresh_token" in tokens, "Tokens não retornados"
+    # Geração dos tokens para o usuário ADM (ID 9)
+    tokens = token_service.generate_and_store_token(9, "ADM")
+    assert (
+        "access_token" in tokens and "refresh_token" in tokens
+    ), "Tokens não retornados"
 
     # Renovação usando refresh_token
-    refresh_headers = {"Refresh-Token": tokens["refresh_token"]}
-    refresh_resp = requests.post(
-        f"{BASE_URL}/admin/refresh-token", headers=refresh_headers
-    )
+    refresh_token = tokens["refresh_token"]
+    decoded_refresh_token = token_service.decode_refresh_token(refresh_token)
+    assert decoded_refresh_token["user_id"] == 9, "Refresh token inválido"
 
+    # Gera um novo access_token usando o refresh_token
+    new_access_token = token_service.renovar_access_token(refresh_token)
+    decoded_new_access_token = token_service.decode_token(new_access_token)
+    assert decoded_new_access_token["user_id"] == 9, "Novo access_token inválido"
     assert (
-        refresh_resp.status_code == 200
-    ), f"Erro ao renovar token: {refresh_resp.text}"
-    assert "token" in refresh_resp.json(), "Novo token não retornado"
+        decoded_new_access_token["cargo"] == "ADM"
+    ), "Novo access_token não contém o cargo correto"
 
 
-def test_revoke_token(headers):
+def test_revoke_token():
     """
-    ❌ Testa a revogação manual de um access_token pela rota /admin/revoke-token.
+    ❌ Testa a revogação manual de um refresh_token usando o serviço AdminService.
 
     Verifica:
     - Se o token pode ser revogado com sucesso
-    - Se a mensagem de confirmação é retornada corretamente
     """
-    # Geração de token
-    resp = requests.post(
-        f"{BASE_URL}/admin/generate-token",
-        json={"user_id": 4, "cargo": "ADM"},
-        headers=headers,
-    )
-    access_token = resp.json().get("token")
+    # Geração de tokens para o usuário ADM (ID 9)
+    tokens = token_service.generate_and_store_token(9, "ADM")
+    refresh_token = tokens["refresh_token"]
 
-    # Envio para revogação
-    auth_headers = {
-        "Authorization": f"Bearer {access_token}",
-        "Content-Type": "application/json",
-    }
-    payload = {"token": access_token}
+    # Revogação do refresh_token usando o serviço
+    admin_service.revogar_refresh_token(refresh_token)
 
-    revoke_resp = requests.post(
-        f"{BASE_URL}/admin/revoke-token", json=payload, headers=auth_headers
-    )
-
-    assert revoke_resp.status_code == 200
-    assert "revogado" in revoke_resp.json().get("message", "").lower()
+    # Verifica se o refresh_token foi revogado
+    with pytest.raises(ValueError, match="Token inválido!"):
+        token_service.decode_refresh_token(refresh_token)
 
 
-def test_revoke_refresh_token(headers):
+def test_revoke_refresh_token():
     """
-    🔐 Revoga um refresh_token autenticado pela rota ADMIN.
+    🔐 Revoga um refresh_token.
 
     Valida:
     - Geração de tokens válidos
-    - Envio do refresh_token para revogação
-    - Confirmação da revogação com status 200 e mensagem apropriada
+    - Revogação do refresh_token
     """
-    # Geração de tokens
-    response = requests.post(
-        f"{BASE_URL}/admin/generate-token",
-        json={"user_id": 4, "cargo": "ADM"},
-        headers=headers,
-    )
-    assert response.status_code == 200, f"Erro ao gerar token: {response.text}"
-    tokens = response.json()
+    # Geração de tokens para o usuário ADM (ID 9)
+    tokens = token_service.generate_and_store_token(9, "ADM")
     refresh_token = tokens["refresh_token"]
-    access_token = tokens["token"]
 
-    # Headers de autenticação ADM
-    admin_headers = {
-        "Authorization": f"Bearer {access_token}",
-        "Content-Type": "application/json",
-    }
+    # Revogação do refresh_token usando o TokenService
+    token_service.revogar_refresh_token(refresh_token)
 
-    # Define o payload para revogação
-    payload = {"refresh_token": refresh_token}  # Ajuste aqui se necessário
-
-    # Requisição para revogar o refresh_token
-    revoke_resp = requests.post(
-        f"{BASE_URL}/admin/revoke-refresh-token",
-        json=payload,
-        headers=admin_headers,
-    )
-    assert revoke_resp.status_code == 200, f"Erro ao revogar token: {revoke_resp.text}"
-    assert "revogado" in revoke_resp.json().get("message", "").lower()
+    # Verifica se o refresh_token foi revogado
+    with pytest.raises(ValueError, match="Token inválido!"):
+        token_service.decode_refresh_token(refresh_token)
 
 
-def test_list_refresh_tokens_paginated(headers):
+def test_list_refresh_tokens_paginated():
     """
     📄 Lista todos os refresh tokens com paginação e filtros aplicados.
 
     Valida:
     - Geração de token de administrador
-    - Acesso à rota protegida /admin/refresh-tokens
-    - Retorno com chave 'data' e estrutura de lista paginada
+    - Listagem de tokens paginados
     """
-    # Geração de token ADM
-    resp = requests.post(
-        f"{BASE_URL}/admin/generate-token",
-        json={"user_id": 4, "cargo": "ADM"},
-        headers=headers,
-    )
-    assert resp.status_code == 200, f"Erro ao gerar token: {resp.text}"
-    tokens = resp.json()
-    access_token = tokens["token"]
+    # Geração de token ADM (ID 9)
+    tokens = token_service.generate_and_store_token(9, "ADM")
 
-    # Filtros de listagem
-    headers_auth = {"Authorization": f"Bearer {access_token}"}
-    params = {"page": 1, "limit": 5, "email": "admin", "revogado": "false"}
-
-    # Requisição para listagem de tokens
-    resp = requests.get(
-        f"{BASE_URL}/admin/refresh-tokens", headers=headers_auth, params=params
+    # Listagem de tokens
+    result = admin_service.listar_refresh_tokens(
+        page=1, limit=5, email_filter="adm", revogado_filter="false"
     )
-    assert resp.status_code == 200, f"Falha ao buscar tokens: {resp.text}"
-    assert "data" in resp.json(), "Resposta não contém 'data'"
-    assert isinstance(resp.json()["data"], list), "Dados retornados não são uma lista"
+    assert "data" in result, "Resposta não contém 'data'"
+    assert isinstance(result["data"], list), "Dados retornados não são uma lista"
+    assert len(result["data"]) <= 5, "Mais de 5 tokens retornados"

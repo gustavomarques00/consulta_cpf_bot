@@ -1,12 +1,17 @@
-import datetime
+import csv
+from io import StringIO
 from multiprocessing.connection import Client
+from venv import logger
 from flask import Blueprint, jsonify, request  # type: ignore
 from middlewares.auth_middleware import permission_required, token_required
 from flasgger import swag_from  # type: ignore
 from core.db import get_db_connection
 from core.config import Config
+from services import operation_service
+from services.extracao_service import ExtracaoService
 
 operacaoes_bp = Blueprint("operacaoes", __name__, url_prefix="/operacaoes")
+operation_service = operation_service.OperationService()
 
 
 @operacaoes_bp.route("/operadores", methods=["GET"])
@@ -51,21 +56,16 @@ def listar_operadores():
     """
     chefe_id = request.user_id  # ID do Chefe de Equipe autenticado
 
-    conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-    cursor.execute(
-        """
-        SELECT u.id, u.nome, u.email
-        FROM chefe_operadores co
-        JOIN usuarios u ON co.operador_id = u.id
-        WHERE co.chefe_id = %s
-        """,
-        (chefe_id,),
-    )
-    operadores = cursor.fetchall()
-    conn.close()
-
-    return jsonify({"operadores": operadores}), 200
+    try:
+        logger.info(f"Usuário {chefe_id} iniciou consulta de operadores.")
+        operadores = operation_service.listar_operadores(chefe_id)
+        logger.info(
+            f"Consulta de operadores concluída com sucesso para o usuário {chefe_id}."
+        )
+        return jsonify({"operadores": operadores}), 200
+    except Exception as e:
+        logger.error(f"Erro ao listar operadores para o usuário {chefe_id}: {str(e)}")
+        return jsonify({"error": f"Erro ao listar operadores: {str(e)}"}), 500
 
 
 @operacaoes_bp.route("/distribuir-dados", methods=["POST"])
@@ -109,78 +109,24 @@ def distribuir_dados():
             400,
         )
 
-    # Validação de quantidade
-    if quantidade_dados <= 0:
-        return (
-            jsonify({"error": "A quantidade de dados deve ser um número positivo"}),
-            400,
+    try:
+        logger.info(
+            f"Usuário {chefe_id} iniciou distribuição de dados para o operador {operador_id}."
         )
-
-    if (
-        quantidade_dados > 500
-    ):  # Definindo um limite máximo de 1000 dados por distribuição
-        return (
-            jsonify({"error": "Não é possível distribuir mais de 150 dados por vez"}),
-            400,
+        operation_service.distribuir_dados(chefe_id, operador_id, quantidade_dados)
+        logger.info(
+            f"Distribuição de dados concluída com sucesso para o operador {operador_id}."
         )
-
-    conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-
-    # Verifica se o Operador pertence ao Chefe de Equipe
-    cursor.execute(
-        "SELECT 1 FROM chefe_operadores WHERE chefe_id = %s AND operador_id = %s",
-        (chefe_id, operador_id),
-    )
-    if not cursor.fetchone():
-        cursor.close()
-        conn.close()
-        return jsonify({"error": "Operador não associado ao Chefe de Equipe"}), 403
-
-    # Verifica o total de dados já distribuídos ao operador
-    cursor.execute(
-        """
-        SELECT SUM(dados_restantes) as total_restante
-        FROM distribuicao_dados
-        WHERE operador_id = %s
-        """,
-        (operador_id,),
-    )
-    resultado = cursor.fetchone()
-    total_atual = (
-        resultado["total_restante"] if resultado and resultado["total_restante"] else 0
-    )
-
-    # Verifica se o total com a nova distribuição não excede o limite por operador
-    limite_por_operador = 5000  # Limite máximo de dados não processados por operador
-    if total_atual + quantidade_dados > limite_por_operador:
-        cursor.close()
-        conn.close()
-        return (
-            jsonify(
-                {
-                    "error": f"Limite excedido. O operador já possui {total_atual} dados pendentes. Limite máximo: {limite_por_operador}"
-                }
-            ),
-            400,
-        )
-
-    # Insere ou atualiza a distribuição de dados (código existente)
-    cursor.execute(
-        """
-        INSERT INTO distribuicao_dados (chefe_id, operador_id, dados_distribuidos, dados_restantes, data_distribuicao)
-        VALUES (%s, %s, %s, %s, NOW())
-        ON DUPLICATE KEY UPDATE
-        dados_distribuidos = dados_distribuidos + VALUES(dados_distribuidos),
-        dados_restantes = dados_restantes + VALUES(dados_restantes)
-        """,
-        (chefe_id, operador_id, quantidade_dados, quantidade_dados),
-    )
-    conn.commit()
-    cursor.close()
-    conn.close()
-
-    return jsonify({"message": "Dados distribuídos com sucesso!"}), 200
+        return jsonify({"message": "Dados distribuídos com sucesso!"}), 200
+    except ValueError as e:
+        logger.warning(f"Erro de validação ao distribuir dados: {str(e)}")
+        return jsonify({"error": str(e)}), 400
+    except PermissionError as e:
+        logger.warning(f"Erro de permissão ao distribuir dados: {str(e)}")
+        return jsonify({"error": str(e)}), 403
+    except Exception as e:
+        logger.error(f"Erro ao distribuir dados: {str(e)}")
+        return jsonify({"error": f"Erro ao distribuir dados: {str(e)}"}), 500
 
 
 @operacaoes_bp.route("/progresso-operadores", methods=["GET"])
@@ -227,21 +173,19 @@ def progresso_operadores():
     """
     chefe_id = request.user_id  # ID do Chefe de Equipe autenticado
 
-    conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-    cursor.execute(
-        """
-        SELECT u.id AS operador_id, u.nome, dd.dados_distribuidos, dd.dados_restantes
-        FROM distribuicao_dados dd
-        JOIN usuarios u ON dd.operador_id = u.id
-        WHERE dd.chefe_id = %s
-        """,
-        (chefe_id,),
-    )
-    progresso = cursor.fetchall()
-    conn.close()
-
-    return jsonify({"progresso": progresso}), 200
+    try:
+        logger.info(f"Usuário {chefe_id} iniciou consulta de progresso dos operadores.")
+        progresso = operation_service.progresso_operadores(chefe_id)
+        logger.info(
+            f"Consulta de progresso concluída com sucesso para o usuário {chefe_id}."
+        )
+        return jsonify({"progresso": progresso}), 200
+    except Exception as e:
+        logger.error(f"Erro ao consultar progresso dos operadores: {str(e)}")
+        return (
+            jsonify({"error": f"Erro ao consultar progresso dos operadores: {str(e)}"}),
+            500,
+        )
 
 
 @operacaoes_bp.route("/relatorio-desempenho", methods=["GET"])
@@ -318,109 +262,24 @@ def relatorio_desempenho():
     periodo = request.args.get("periodo", "semana")
     operador_id = request.args.get("operador_id")
 
-    # Definir intervalo de datas baseado no período
-    hoje = datetime.now().date()
-    if periodo == "hoje":
-        data_inicio = hoje
-        data_fim = hoje
-    elif periodo == "mes":
-        data_inicio = datetime(hoje.year, hoje.month, 1).date()
-        # Último dia do mês atual
-        if hoje.month == 12:
-            data_fim = datetime(hoje.year + 1, 1, 1).date() - datetime.timedelta(days=1)
-        else:
-            data_fim = datetime(
-                hoje.year, hoje.month + 1, 1
-            ).date() - datetime.timedelta(days=1)
-    else:  # semana (padrão)
-        # Segunda-feira da semana atual
-        data_inicio = hoje - datetime.timedelta(days=hoje.weekday())
-        # Domingo da semana atual
-        data_fim = data_inicio + datetime.timedelta(days=6)
-
-    conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-
-    # Filtro de operador específico, se fornecido
-    operador_filter = ""
-    params = [chefe_id]
-    if operador_id:
-        operador_filter = " AND dd.operador_id = %s"
-        params.append(operador_id)
-
-    # Consulta para obter dados de desempenho
-    query = f"""
-    SELECT 
-        u.id AS operador_id, 
-        u.nome, 
-        u.email,
-        dd.dados_distribuidos,
-        dd.dados_restantes,
-        (dd.dados_distribuidos - dd.dados_restantes) AS dados_processados,
-        CASE 
-            WHEN dd.dados_distribuidos > 0 
-            THEN ((dd.dados_distribuidos - dd.dados_restantes) / dd.dados_distribuidos * 100) 
-            ELSE 0 
-        END AS eficiencia,
-        (
-            SELECT AVG(TIMESTAMPDIFF(MINUTE, hr.inicio, hr.fim))
-            FROM historico_registros hr
-            WHERE hr.operador_id = u.id 
-            AND DATE(hr.data_registro) BETWEEN %s AND %s
-        ) AS tempo_medio_minutos
-    FROM distribuicao_dados dd
-    JOIN usuarios u ON dd.operador_id = u.id
-    WHERE dd.chefe_id = %s{operador_filter}
-    """
-
-    cursor.execute(query, [data_inicio, data_fim] + params)
-    resultados = cursor.fetchall()
-
-    # Para cada operador, buscar detalhes diários
-    for operador in resultados:
-        cursor.execute(
-            """
-            SELECT 
-                DATE(hr.data_registro) AS data,
-                COUNT(hr.id) AS registros_processados,
-                SEC_TO_TIME(AVG(TIMESTAMPDIFF(SECOND, hr.inicio, hr.fim))) AS tempo_medio
-            FROM historico_registros hr
-            WHERE hr.operador_id = %s
-            AND DATE(hr.data_registro) BETWEEN %s AND %s
-            GROUP BY DATE(hr.data_registro)
-            ORDER BY data
-        """,
-            [operador["operador_id"], data_inicio, data_fim],
+    try:
+        logger.info(f"Usuário {chefe_id} iniciou consulta de relatório de desempenho.")
+        response = operation_service.gerar_relatorio_desempenho(
+            chefe_id, periodo, operador_id
         )
-
-        detalhes_diarios = cursor.fetchall()
-        operador["detalhes_diarios"] = detalhes_diarios
-
-        # Converter para formato HH:MM:SS
-        if operador["tempo_medio_minutos"]:
-            horas = int(operador["tempo_medio_minutos"] // 60)
-            minutos = int(operador["tempo_medio_minutos"] % 60)
-            operador["tempo_medio_processamento"] = f"{horas:02d}:{minutos:02d}:00"
-        else:
-            operador["tempo_medio_processamento"] = "00:00:00"
-
-        # Remover campo temporário
-        del operador["tempo_medio_minutos"]
-
-    cursor.close()
-    conn.close()
-
-    return (
-        jsonify(
-            {
-                "periodo": periodo,
-                "data_inicio": data_inicio.strftime("%Y-%m-%d"),
-                "data_fim": data_fim.strftime("%Y-%m-%d"),
-                "desempenho": resultados,
-            }
-        ),
-        200,
-    )
+        logger.info(
+            f"Relatório de desempenho gerado com sucesso para o usuário {chefe_id}."
+        )
+        return jsonify(response), 200
+    except ValueError as e:
+        logger.warning(f"Erro de validação ao gerar relatório: {str(e)}")
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        logger.error(f"Erro ao gerar relatório de desempenho: {str(e)}")
+        return (
+            jsonify({"error": f"Erro ao gerar relatório de desempenho: {str(e)}"}),
+            500,
+        )
 
 
 @operacaoes_bp.route("/historico-distribuicao", methods=["GET"])
@@ -467,30 +326,23 @@ def historico_distribuicao():
     """
     chefe_id = request.user_id  # ID do Chefe de Equipe autenticado
 
-    conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-
-    # Consulta para obter o histórico de distribuições
-    cursor.execute(
-        """
-        SELECT 
-            dd.data_distribuicao,
-            u.id AS operador_id,
-            u.nome AS nome_operador,
-            dd.dados_distribuidos
-        FROM distribuicao_dados dd
-        JOIN usuarios u ON dd.operador_id = u.id
-        WHERE dd.chefe_id = %s
-        ORDER BY dd.data_distribuicao DESC
-        """,
-        (chefe_id,),
-    )
-    historico = cursor.fetchall()
-
-    cursor.close()
-    conn.close()
-
-    return jsonify({"historico": historico}), 200
+    try:
+        logger.info(
+            f"Usuário {chefe_id} iniciou consulta do histórico de distribuição."
+        )
+        historico = operation_service.obter_historico_distribuicao(chefe_id)
+        logger.info(
+            f"Consulta do histórico de distribuição concluída com sucesso para o usuário {chefe_id}."
+        )
+        return jsonify({"historico": historico}), 200
+    except Exception as e:
+        logger.error(f"Erro ao consultar histórico de distribuição: {str(e)}")
+        return (
+            jsonify(
+                {"error": f"Erro ao consultar histórico de distribuição: {str(e)}"}
+            ),
+            500,
+        )
 
 
 @operacaoes_bp.route("/reatribuir-dados", methods=["POST"])
@@ -573,79 +425,150 @@ def reatribuir_dados():
             400,
         )
 
-    conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-
-    # Verifica se o Operador de origem pertence ao Chefe de Equipe
-    cursor.execute(
-        "SELECT 1 FROM chefe_operadores WHERE chefe_id = %s AND operador_id = %s",
-        (chefe_id, operador_origem_id),
-    )
-    origem_valida = cursor.fetchone()
-    print(f"DEBUG: Operador de origem válido? {origem_valida}")
-
-    if not origem_valida:
-        cursor.close()
-        conn.close()
-        return (
-            jsonify({"error": "O Operador de origem não pertence ao Chefe de Equipe"}),
-            403,
+    try:
+        logger.info(
+            f"Usuário {chefe_id} iniciou reatribuição de dados de {operador_origem_id} para {operador_destino_id}."
         )
-
-    # Verifica se o Operador de destino pertence ao Chefe de Equipe
-    cursor.execute(
-        "SELECT 1 FROM chefe_operadores WHERE chefe_id = %s AND operador_id = %s",
-        (chefe_id, operador_destino_id),
-    )
-    destino_valido = cursor.fetchone()
-    print(f"DEBUG: Operador de destino válido? {destino_valido}")
-
-    if not destino_valido:
-        cursor.close()
-        conn.close()
-        return (
-            jsonify({"error": "O Operador de destino não pertence ao Chefe de Equipe"}),
-            403,
+        operation_service.reatribuir_dados(
+            chefe_id, operador_origem_id, operador_destino_id, quantidade_dados
         )
-
-    # Verifica se o Operador de origem tem dados suficientes
-    cursor.execute(
-        "SELECT dados_restantes FROM distribuicao_dados WHERE operador_id = %s",
-        (operador_origem_id,),
-    )
-    origem_dados = cursor.fetchone()
-    print(f"DEBUG: Dados restantes do operador de origem: {origem_dados}")
-
-    if not origem_dados or origem_dados["dados_restantes"] < quantidade_dados:
-        cursor.close()
-        conn.close()
+        logger.info(f"Reatribuição concluída com sucesso para o usuário {chefe_id}.")
         return (
-            jsonify({"error": "O Operador de origem não possui dados suficientes"}),
-            400,
+            jsonify(
+                {
+                    "message": "✅ Dados reatribuídos com sucesso.",
+                    "operador_origem_id": operador_origem_id,
+                    "operador_destino_id": operador_destino_id,
+                    "quantidade_dados": quantidade_dados,
+                }
+            ),
+            200,
         )
+    except ValueError as e:
+        logger.warning(f"Erro de validação ao reatribuir dados: {str(e)}")
+        return jsonify({"error": str(e)}), 400
+    except PermissionError as e:
+        logger.warning(f"Erro de permissão ao reatribuir dados: {str(e)}")
+        return jsonify({"error": str(e)}), 403
+    except Exception as e:
+        logger.error(f"Erro ao reatribuir dados: {str(e)}")
+        return jsonify({"error": f"Erro ao reatribuir dados: {str(e)}"}), 500
 
-    # Atualiza os dados dos Operadores
-    cursor.execute(
-        "UPDATE distribuicao_dados SET dados_restantes = dados_restantes - %s WHERE operador_id = %s",
-        (quantidade_dados, operador_origem_id),
-    )
-    cursor.execute(
-        "UPDATE distribuicao_dados SET dados_restantes = dados_restantes + %s WHERE operador_id = %s",
-        (quantidade_dados, operador_destino_id),
-    )
-    conn.commit()
 
-    cursor.close()
-    conn.close()
-
-    return (
-        jsonify(
+@operacaoes_bp.route("/upload-cpfs", methods=["POST"])
+@swag_from(
+    {
+        "tags": ["Chefe de Equipe"],
+        "summary": "Upload de CPFs para processamento",
+        "description": "Permite ao Chefe de Equipe enviar um arquivo CSV com CPFs para processamento e escolher os campos desejados.",
+        "parameters": [
             {
-                "message": "✅ Dados reatribuídos com sucesso.",
-                "operador_origem_id": operador_origem_id,
-                "operador_destino_id": operador_destino_id,
-                "quantidade_dados": quantidade_dados,
-            }
-        ),
-        200,
-    )
+                "name": "file",
+                "in": "formData",
+                "type": "file",
+                "required": True,
+                "description": "Arquivo CSV contendo uma coluna 'cpf'.",
+            },
+            {
+                "name": "campos",
+                "in": "query",
+                "type": "array",
+                "items": {"type": "string"},
+                "required": True,
+                "description": "Lista de campos desejados (ex.: NOME, CPF, SEXO, NASCIMENTO, RENDA, PODER_AQUISITIVO, EMAIL, TELEFONES).",
+            },
+            {
+                "name": "status_inicial",
+                "in": "query",
+                "type": "string",
+                "required": False,
+                "description": "Status inicial dos leads: Criar, Criado ou Recusado. Padrão: Criar.",
+            },
+        ],
+        "responses": {
+            200: {"description": "Arquivo processado com sucesso."},
+            400: {"description": "Erro de validação ou arquivo inválido."},
+            500: {"description": "Erro interno do servidor."},
+        },
+    }
+)
+@token_required
+@permission_required("CHEFE DE EQUIPE")
+def upload_cpfs():
+    """
+    Permite ao Chefe de Equipe enviar um arquivo com CPFs para processamento e escolher os campos desejados.
+    """
+    chefe_id = request.user_id
+    logger.info(f"Usuário {chefe_id} iniciou upload de CPFs.")
+
+    if "file" not in request.files:
+        logger.warning(f"Usuário {chefe_id} não enviou nenhum arquivo.")
+        return jsonify({"error": "Nenhum arquivo enviado."}), 400
+
+    file = request.files["file"]
+    if file.filename == "":
+        logger.warning(f"Usuário {chefe_id} enviou um arquivo com nome vazio.")
+        return jsonify({"error": "O nome do arquivo está vazio."}), 400
+
+    if not file.filename.endswith(".csv"):
+        logger.warning(
+            f"Usuário {chefe_id} enviou um arquivo com extensão inválida: {file.filename}."
+        )
+        return jsonify({"error": "Apenas arquivos CSV são suportados."}), 400
+
+    try:
+        # Processar o arquivo CSV
+        logger.info(
+            f"Usuário {chefe_id} enviou o arquivo {file.filename} para processamento."
+        )
+        csv_data = StringIO(file.stream.read().decode("utf-8"))
+        reader = csv.reader(csv_data)
+        header = next(reader)
+
+        if "cpf" not in [col.lower() for col in header]:
+            logger.warning(f"Usuário {chefe_id} enviou um arquivo sem a coluna 'cpf'.")
+            return jsonify({"error": "O arquivo deve conter uma coluna 'cpf'."}), 400
+
+        cpfs = [row[0].strip() for row in reader if row]
+        logger.info(
+            f"Usuário {chefe_id} enviou um arquivo com {len(cpfs)} CPFs para processamento."
+        )
+
+        # Validação dos campos desejados
+        campos_desejados = request.args.get("campos", "").split(",")
+        logger.debug(f"Campos recebidos: {campos_desejados}")
+        campos_permitidos = ExtracaoService(Config).CAMPOS_PERMITIDOS
+        if not all(
+            campo.strip() in campos_permitidos
+            for campo in campos_desejados
+            if campo.strip()
+        ):
+            logger.warning(
+                f"Usuário {chefe_id} enviou campos inválidos: {campos_desejados}."
+            )
+            return jsonify({"error": "Campos inválidos"}), 400
+
+        status_inicial = request.args.get("status_inicial", "Criar")
+
+        logger.info(
+            f"Usuário {chefe_id} selecionou os campos: {campos_desejados} e status inicial: {status_inicial}."
+        )
+        resultados = operation_service.processar_cpfs_upload(
+            chefe_id, cpfs, campos_desejados, status_inicial
+        )
+
+        logger.info(
+            f"Processamento do arquivo enviado pelo usuário {chefe_id} concluído com sucesso."
+        )
+        return (
+            jsonify(
+                {"message": "Arquivo processado com sucesso.", "resultados": resultados}
+            ),
+            200,
+        )
+
+    except Exception as e:
+        logger.error(
+            f"Erro ao processar o arquivo enviado pelo usuário {chefe_id}: {str(e)}"
+        )
+        return jsonify({"error": f"Erro ao processar o arquivo: {str(e)}"}), 500

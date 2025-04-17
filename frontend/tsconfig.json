@@ -23,9 +23,8 @@
       "@/*": ["app/*"] // Alias para a pasta "app" que facilita a importação de módulos
     },
     "typeRoots": [
-      "node_modules/@types", // Define o diretório de tipos adicionais
-      "node_modules/tailwindcss/types", // Adiciona os tipos do Tailwind CSS (se necessário)
-      // "node_modules/generated", // Adiciona os tipos gerados
+      "./types",                 // Aqui fica sua pasta com tipos personalizados
+      "node_modules/@types"
     ]
   },
   "include": [

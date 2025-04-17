@@ -30,3 +30,6 @@ pre-commit==3.7.0
 
 # 📦 Outros
 git-changelog==2.4.0
+
+# 🔐 Autenticação e Segurança (opcional, se não usar bcrypt)
+PyJWT>=2.0.0

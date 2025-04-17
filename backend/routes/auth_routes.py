@@ -1,14 +1,9 @@
 import logging
 import bcrypt  # type: ignore
-import mysql.connector
 from flask import Blueprint, request, jsonify  # type: ignore
-from core.db import get_db_connection
-from utils.validators import (
-    insert_user,
-    is_email_registered,
-    validate_user_data,
-)
 from flasgger.utils import swag_from  # type: ignore
+from services.auth_service import AuthService
+from core.db import get_db_connection
 
 # Configuração do Logger
 logging.basicConfig(level=logging.INFO)
@@ -16,6 +11,10 @@ logger = logging.getLogger(__name__)
 
 # Blueprint de autenticação
 auth_bp = Blueprint("auth_bp", __name__, url_prefix="/auth")
+
+# Instância do serviço de autenticação
+auth_service = AuthService()
+
 
 @auth_bp.route("/register", methods=["POST"])
 @swag_from(
@@ -100,7 +99,10 @@ def register():
     missing_fields = [field for field in required_fields if not data.get(field)]
     if missing_fields:
         logger.warning(f"Campos obrigatórios ausentes: {', '.join(missing_fields)}")
-        return jsonify({"error": f"Campos obrigatórios: {', '.join(missing_fields)}"}), 400
+        return (
+            jsonify({"error": f"Campos obrigatórios: {', '.join(missing_fields)}"}),
+            400,
+        )
 
     nome = data["nome"]
     email = data["email"]
@@ -110,40 +112,20 @@ def register():
     confirmar_senha = data["confirmarSenha"]
 
     # Validações
-    validation_error = validate_user_data(email, telefone, senha, confirmar_senha, cargo)
+    validation_error = auth_service.validate_user_data(
+        email, telefone, senha, confirmar_senha, cargo
+    )
     if validation_error:
-        return validation_error
+        return jsonify(validation_error[0]), validation_error[1]
 
-    # Verifica se o cargo é válido
-    cargos_validos = ["ADM", "OPERADOR", "CHEFE DE EQUIPE"]
-    if cargo not in cargos_validos:
-        logger.warning(f"Cargo inválido: {cargo}")
-        return jsonify({"error": f"Cargo inválido. Os cargos válidos são: {', '.join(cargos_validos)}"}), 400
-
-    # Criptografar a senha
-    hashed_senha = bcrypt.hashpw(senha.encode("utf-8"), bcrypt.gensalt())
-    logger.info(f"Senha criptografada para o usuário {nome}.")
-
-    # Inserir no banco de dados
+    # Inserir no banco de dados usando o serviço
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-
-        # Verifica se o email já está cadastrado
-        if is_email_registered(cursor, email):
-            logger.warning(f"Email já cadastrado: {email}")
-            return jsonify({"error": "Email já cadastrado!"}), 400
-
-        # Insere o novo usuário
-        insert_user(cursor, nome, email, telefone, cargo, hashed_senha)
-        conn.commit()
+        auth_service.register_user(nome, email, telefone, cargo, senha)
         logger.info(f"Usuário {nome} registrado com sucesso.")
-
         return jsonify({"message": "Usuário registrado com sucesso!"}), 201
-
-    except mysql.connector.Error as err:
+    except ValueError as e:
+        logger.warning(f"Erro de validação: {e}")
+        return jsonify({"error": str(e)}), 400
+    except Exception as err:
         logger.error(f"Erro no banco de dados: {err}")
         return jsonify({"error": f"Erro no banco de dados: {err}"}), 500
-    finally:
-        if conn:
-            conn.close()

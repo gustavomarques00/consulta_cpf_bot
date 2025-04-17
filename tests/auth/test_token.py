@@ -1,13 +1,16 @@
 import pytest
-import jwt
-from utils import token as token_utils
+import jwt  # type: ignore
+from core.config import Config
+from services.token_service import TokenService
+from tests.conftest import (
+    JWT_SECRET,
+    JWT_ALGORITHM,
+)
 
-# ========================
-# TESTES DE TOKEN
-# ========================
+# Instancia o serviço de token com as configurações corretas
+token_service = TokenService(jwt_secret=JWT_SECRET, jwt_algorithm=JWT_ALGORITHM)
 
-
-def test_generate_token_structure(user_data):
+def test_generate_token_structure(chefe_token):
     """
     Testa se a estrutura do token gerado está correta.
     Verifica:
@@ -15,69 +18,74 @@ def test_generate_token_structure(user_data):
     - O tipo de token é "access"
     - O campo "exp" está presente no token
     """
-    token = token_utils.generate_token(user_data["user_id"], user_data["cargo"])
-
     # Decodifica sem validar expiração
     decoded = jwt.decode(
-        token, token_utils.JWT_SECRET, algorithms=[token_utils.JWT_ALGORITHM]
+        chefe_token, Config.JWT_SECRET, algorithms=[Config.JWT_ALGORITHM]
     )
 
-    assert decoded["user_id"] == user_data["user_id"]
-    assert decoded["cargo"] == user_data["cargo"]
+    assert decoded["user_id"] == 1
+    assert decoded["cargo"] == "CHEFE DE EQUIPE"
     assert decoded["type"] == "access"
     assert "exp" in decoded
 
 
-def test_create_refresh_token(user_data):
+def test_create_refresh_token(refresh_token):
     """
     Testa se o refresh token é criado corretamente.
     Verifica:
     - O refresh token contém os dados corretos
     - O tipo de token é "refresh"
     """
-    token = token_utils.create_refresh_token(user_data["user_id"])
-
     decoded = jwt.decode(
-        token, token_utils.JWT_SECRET, algorithms=[token_utils.JWT_ALGORITHM]
+        refresh_token, Config.JWT_SECRET, algorithms=[Config.JWT_ALGORITHM]
     )
 
-    assert decoded["user_id"] == user_data["user_id"]
+    assert decoded["user_id"] == 1
     assert decoded["type"] == "refresh"
 
 
-def test_generate_tokens_both_present(user_data):
+def test_generate_tokens_both_present(chefe_token, refresh_token):
     """
     Testa se tanto o access_token quanto o refresh_token são gerados corretamente.
     Verifica:
     - Se ambos os tokens estão presentes no resultado
     """
-    result = token_utils.generate_tokens(user_data["user_id"], user_data["cargo"])
-
-    assert "access_token" in result
-    assert "refresh_token" in result
+    assert chefe_token is not None
+    assert refresh_token is not None
 
 
-def test_decode_valid_token(user_data):
+def test_decode_valid_token(chefe_token):
     """
     Testa se a decodificação de um token válido retorna os dados corretos.
     Verifica:
     - Se o token decodificado contém o user_id e cargo corretos
     """
-    token = token_utils.generate_token(user_data["user_id"], user_data["cargo"])
-    decoded = token_utils.decode_token(token)
+    decoded = jwt.decode(
+        chefe_token, Config.JWT_SECRET, algorithms=[Config.JWT_ALGORITHM]
+    )
 
     assert decoded is not None
-    assert decoded["user_id"] == user_data["user_id"]
-    assert decoded["cargo"] == user_data["cargo"]
+    assert decoded["user_id"] == 1
+    assert decoded["cargo"] == "CHEFE DE EQUIPE"
 
 
-def test_decode_invalid_token():
+def test_decode_invalid_token(invalid_token):
     """
     Testa se a decodificação de um token inválido retorna None.
     Verifica:
     - Se um token inválido não retorna dados
     """
-    invalid_token = "invalid.token.structure"
-    result = token_utils.decode_token(invalid_token)
+    with pytest.raises(jwt.exceptions.DecodeError, match="Not enough segments"):
+        jwt.decode(invalid_token, Config.JWT_SECRET, algorithms=[Config.JWT_ALGORITHM])
 
-    assert result is None
+
+def test_blacklisted_token(chefe_token):
+    """
+    Testa se um token na blacklist é identificado corretamente.
+    """
+    # Revoga o token
+    token_service.revogar_access_token(chefe_token)
+
+    # Verifica se o token está na blacklist
+    is_blacklisted = token_service.is_token_blacklisted(chefe_token)
+    assert is_blacklisted is True

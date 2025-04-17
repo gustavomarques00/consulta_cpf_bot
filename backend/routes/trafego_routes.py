@@ -2,20 +2,25 @@ import os
 import csv
 from venv import logger
 from core.db import get_db_connection
-from flask import Blueprint, jsonify, request, send_file
+from flask import Blueprint, jsonify, request, send_file  # type: ignore
 from datetime import datetime
 from io import StringIO
 from urllib.parse import urlparse
 import logging
-from flasgger import swag_from
+from flasgger import swag_from  # type: ignore
 from core.config import Config
-from middlewares.auth_middleware import token_required
+from middlewares.auth_middleware import token_required, permission_required
+from services.trafego_service import TrafegoService
+
 
 trafego_bp = Blueprint("trafego", __name__, url_prefix="/trafego")
 logger = logging.getLogger(__name__)
 
+trafego_service = TrafegoService()
+
 
 @trafego_bp.route("/historico", methods=["GET"])
+@permission_required("CHEFE DE EQUIPE")
 @token_required
 @swag_from(
     {
@@ -42,55 +47,42 @@ logger = logging.getLogger(__name__)
     }
 )
 def consultar_historico():
+    """
+    Consulta o histórico de envios de tráfego com base em filtros opcionais.
+    """
     data_param = request.args.get("data")
     status_param = request.args.get("status")
-    log_dir = os.path.join(Config.BASE_DIR, "logs", "brsmm")
 
-    if not os.path.exists(log_dir):
-        return jsonify({"message": "Nenhum log disponível ainda."}), 200
+    logger.info(
+        f"Usuário {request.user_id} iniciou consulta de histórico com filtros: data={data_param}, status={status_param}"
+    )
 
-    if data_param:
-        try:
-            datetime.strptime(data_param, "%Y-%m-%d")
-        except ValueError:
-            return (
-                jsonify({"error": "Data inválida. Formato esperado: YYYY-MM-DD"}),
-                400,
-            )
-
-        log_path = os.path.join(log_dir, f"brsmm_{data_param}.log")
-        if not os.path.exists(log_path):
-            return jsonify({"error": "Log não encontrado para a data informada"}), 404
-
-        with open(log_path, "r", encoding="utf-8") as f:
-            linhas = [l.strip() for l in f.readlines()]
-
-        if status_param:
-            status_param = status_param.lower()
-            if status_param == "sucesso":
-                linhas = [l for l in linhas if "✅" in l]
-            elif status_param == "erro":
-                linhas = [l for l in linhas if "❌" in l or "💥" in l]
-
-        return jsonify({"data": linhas})
-
-    historico = {}
-    for nome in sorted(os.listdir(log_dir), reverse=True):
-        if nome.startswith("brsmm_") and nome.endswith(".log"):
-            data_log = nome.replace("brsmm_", "").replace(".log", "")
-            with open(os.path.join(log_dir, nome), "r", encoding="utf-8") as f:
-                linhas = [l.strip() for l in f.readlines()]
-                if status_param:
-                    if status_param == "sucesso":
-                        linhas = [l for l in linhas if "✅" in l]
-                    elif status_param == "erro":
-                        linhas = [l for l in linhas if "❌" in l or "💥" in l]
-                historico[data_log] = linhas
-
-    return jsonify(historico)
+    try:
+        # Chama o serviço para buscar o histórico
+        response = trafego_service.consultar_historico(data_param, status_param)
+        logger.info(
+            f"Consulta de histórico concluída com sucesso para o usuário {request.user_id}"
+        )
+        return jsonify(response), 200
+    except ValueError as e:
+        logger.warning(
+            f"Erro de validação na consulta de histórico: {str(e)} para o usuário {request.user_id}"
+        )
+        return jsonify({"error": str(e)}), 400
+    except FileNotFoundError:
+        logger.warning(
+            f"Log não encontrado para a data {data_param} na consulta de histórico do usuário {request.user_id}"
+        )
+        return jsonify({"error": "Log não encontrado para a data informada"}), 404
+    except Exception as e:
+        logger.error(
+            f"Erro ao consultar histórico para o usuário {request.user_id}: {str(e)}"
+        )
+        return jsonify({"error": f"Erro ao consultar histórico: {str(e)}"}), 500
 
 
 @trafego_bp.route("/exportar", methods=["GET"])
+@permission_required("CHEFE DE EQUIPE")
 @token_required
 @swag_from(
     {
@@ -111,37 +103,42 @@ def consultar_historico():
     }
 )
 def exportar_csv():
+    """
+    Exporta o log diário para um arquivo CSV.
+    """
     data_param = request.args.get("data")
     if not data_param:
+        logger.warning("Parâmetro 'data' ausente na requisição.")
         return jsonify({"error": "Parâmetro 'data' é obrigatório (YYYY-MM-DD)"}), 400
 
     try:
-        datetime.strptime(data_param, "%Y-%m-%d")
-    except ValueError:
-        return jsonify({"error": "Data inválida. Formato esperado: YYYY-MM-DD"}), 400
-
-    log_path = os.path.join(Config.BASE_DIR, "logs", "brsmm", f"brsmm_{data_param}.log")
-    if not os.path.exists(log_path):
-        return jsonify({"error": "Log não encontrado"}), 404
-
-    output = StringIO()
-    writer = csv.writer(output)
-    writer.writerow(["Linha"])  # Pode-se refinar para colunas reais depois
-
-    with open(log_path, "r", encoding="utf-8") as file:
-        for linha in file:
-            writer.writerow([linha.strip()])
-
-    output.seek(0)
-    return send_file(
-        output,
-        mimetype="text/csv",
-        as_attachment=True,
-        download_name=f"trafego_{data_param}.csv",
-    )
+        # Chama o serviço para exportar o log
+        logger.info(
+            f"Usuário {request.user_id} solicitou exportação de log para a data {data_param}."
+        )
+        csv_file = trafego_service.exportar_log_csv(data_param)
+        logger.info(
+            f"Exportação de log concluída com sucesso para a data {data_param}."
+        )
+        return send_file(
+            csv_file,
+            mimetype="text/csv",
+            as_attachment=True,
+            download_name=f"trafego_{data_param}.csv",
+        )
+    except ValueError as e:
+        logger.warning(f"Erro de validação na exportação de log: {str(e)}")
+        return jsonify({"error": str(e)}), 400
+    except FileNotFoundError:
+        logger.warning(f"Log não encontrado para a data {data_param}.")
+        return jsonify({"error": "Log não encontrado para a data informada"}), 404
+    except Exception as e:
+        logger.error(f"Erro inesperado ao exportar log: {str(e)}")
+        return jsonify({"error": f"Erro ao exportar log: {str(e)}"}), 500
 
 
 @trafego_bp.route("/send", methods=["POST"])
+@permission_required("CHEFE DE EQUIPE")
 @token_required
 @swag_from(
     {
@@ -170,79 +167,102 @@ def exportar_csv():
     }
 )
 def enviar_trafego_manual():
-    from services.brsmm_service import BrsmmService
-
+    """
+    Envia tráfego manualmente para uma URL e registra o pedido no banco de dados.
+    """
     data = request.get_json()
     service_id = data.get("service_id")
     url = data.get("url")
     quantidade = data.get("quantidade")
     user_id = request.user_id  # O ID do usuário autenticado
 
+    # Validação de campos obrigatórios
     if not all([service_id, url, quantidade]):
+        logger.warning(f"Usuário {user_id} enviou dados incompletos: {data}")
         return (
             jsonify({"error": "Campos obrigatórios: service_id, url, quantidade"}),
             400,
         )
 
+    # Validação de quantidade
     if not (50 <= quantidade <= 10000):
+        logger.warning(f"Usuário {user_id} enviou quantidade inválida: {quantidade}")
         return jsonify({"error": "Quantidade deve estar entre 50 e 10000"}), 400
 
+    # Validação de URL
     parsed_url = urlparse(url)
     if not parsed_url.scheme in ["http", "https"]:
+        logger.warning(f"Usuário {user_id} enviou URL inválida: {url}")
         return jsonify({"error": "URL inválida. Use http:// ou https://"}), 400
 
-    # Envia o tráfego e registra no banco de dados
-    api = BrsmmService()
-    response = api.add_order(link=url, service_id=service_id, quantity=quantidade)
+    try:
+        # Chama o serviço para enviar o tráfego
+        logger.info(f"Usuário {user_id} iniciou envio de tráfego para {url}.")
+        response = trafego_service.enviar_pedido(user_id, service_id, url, quantidade)
 
-    if "order" in response:
-        order_id = response["order"]
+        if "error" in response:
+            logger.error(f"Erro ao enviar tráfego para {url}: {response['error']}")
+            return jsonify(response), 400
 
-        # Salva o pedido no banco de dados, incluindo o ID do usuário
-        try:
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            cursor.execute(
-                """
-                INSERT INTO trafego_pedidos (user_id, service_id, url, quantidade, status, brsmm_order_id, criado_em)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
-                """,
-                (
-                    user_id,
-                    service_id,
-                    url,
-                    quantidade,
-                    "Em andamento",  # Status inicial
-                    order_id,
-                    datetime.now(),
-                ),
-            )
-            conn.commit()
-            cursor.close()
-            conn.close()
-
-            # Dentro da função enviar_trafego_manual
-            logger.info(
-                f"Usuário {user_id} enviou um pedido para a URL {url} com {quantidade} itens."
-            )
-
-            return (
-                jsonify(
-                    {
-                        "message": "✅ Pedido enviado com sucesso",
-                        "order_id": order_id,
-                    }
-                ),
-                200,
-            )
-        except Exception as e:
-            return jsonify({"error": f"Erro ao salvar pedido no banco: {str(e)}"}), 500
-    else:
-        return jsonify({"error": response}), 400
+        logger.info(f"Usuário {user_id} enviou tráfego com sucesso: {response}")
+        return jsonify(response), 200
+    except Exception as e:
+        logger.error(f"Erro inesperado ao enviar tráfego: {str(e)}")
+        return jsonify({"error": f"Erro ao enviar tráfego: {str(e)}"}), 500
 
 
 @trafego_bp.route("/historico/meus-pedidos", methods=["GET"])
+@permission_required("CHEFE DE EQUIPE")
 @token_required
+@swag_from(
+    {
+        "tags": ["Tráfego"],
+        "summary": "Listar todos os pedidos realizados pelo usuário autenticado",
+        "parameters": [
+            {
+                "name": "status",
+                "in": "query",
+                "description": "Filtro por status do pedido",
+                "schema": {"type": "string"},
+            },
+            {
+                "name": "service_id",
+                "in": "query",
+                "description": "Filtro por ID do serviço",
+                "schema": {"type": "integer"},
+            },
+            {
+                "name": "data_inicio",
+                "in": "query",
+                "description": "Data de início no formato YYYY-MM-DD",
+                "schema": {"type": "string"},
+            },
+            {
+                "name": "data_fim",
+                "in": "query",
+                "description": "Data de fim no formato YYYY-MM-DD",
+                "schema": {"type": "string"},
+            },
+            {
+                "name": "page",
+                "in": "query",
+                "description": "Número da página para paginação",
+                "schema": {"type": "integer", "default": 1},
+            },
+            {
+                "name": "limit",
+                "in": "query",
+                "description": "Quantidade de itens por página",
+                "schema": {"type": "integer", "default": 10},
+            },
+        ],
+        "responses": {
+            200: {"description": "Pedidos retornados com sucesso"},
+            400: {"description": "Erro de validação ou requisição"},
+            500: {"description": "Erro interno do servidor"},
+        },
+    }
+)
 def meus_pedidos():
     """
     Listar todos os pedidos realizados pelo usuário autenticado.
@@ -255,77 +275,60 @@ def meus_pedidos():
     data_fim = request.args.get("data_fim")
     page = int(request.args.get("page", 1))  # Padrão: 1
     limit = int(request.args.get("limit", 10))  # Padrão: 10
-    offset = (page - 1) * limit  # Cálculo de offset para paginação
 
-    filtros = ["user_id = %s"]  # Filtro inicial obrigatório
-    params = [user_id]  # Parâmetros da query
-
-    # Adicionar filtros dinâmicos
-    if status:
-        filtros.append("status = %s")
-        params.append(status)
-
-    if service_id:
-        filtros.append("service_id = %s")
-        params.append(service_id)
-
-    if data_inicio:
-        filtros.append("DATE(criado_em) >= %s")
-        params.append(data_inicio)
-
-    if data_fim:
-        filtros.append("DATE(criado_em) <= %s")
-        params.append(data_fim)
-
-    # Construção da cláusula WHERE
-    where_clause = " AND ".join(filtros)
+    logger.info(
+        f"Usuário {user_id} iniciou consulta de pedidos com filtros: "
+        f"status={status}, service_id={service_id}, data_inicio={data_inicio}, data_fim={data_fim}, page={page}, limit={limit}"
+    )
 
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
-
-        # Contar o total de registros que atendem aos filtros (para calcular a paginação)
-        cursor.execute(
-            f"SELECT COUNT(*) as total FROM trafego_pedidos WHERE {where_clause}",
-            params,
+        # Chama o serviço para buscar os pedidos
+        response = trafego_service.consultar_meus_pedidos(
+            user_id=user_id,
+            status=status,
+            service_id=service_id,
+            data_inicio=data_inicio,
+            data_fim=data_fim,
+            page=page,
+            limit=limit,
         )
-        total = cursor.fetchone()["total"]
-        total_pages = (total + limit - 1) // limit  # Cálculo do total de páginas
-
-        # Buscar os registros paginados
-        cursor.execute(
-            f"""
-            SELECT id, brsmm_order_id, service_id, url, quantidade, preco_total, status, criado_em
-            FROM trafego_pedidos
-            WHERE {where_clause}
-            ORDER BY criado_em DESC
-            LIMIT %s OFFSET %s
-            """,
-            params + [limit, offset],
+        logger.info(
+            f"Consulta de pedidos concluída com sucesso para o usuário {user_id}."
         )
-        pedidos = cursor.fetchall()
-        cursor.close()
-        conn.close()
-
-        return (
-            jsonify(
-                {
-                    "page": page,
-                    "limit": limit,
-                    "total_pages": total_pages,
-                    "total_results": total,
-                    "data": pedidos,
-                }
-            ),
-            200,
+        return jsonify(response), 200
+    except ValueError as e:
+        logger.warning(
+            f"Erro de validação na consulta de pedidos para o usuário {user_id}: {str(e)}"
         )
-
+        return jsonify({"error": str(e)}), 400
     except Exception as e:
+        logger.error(f"Erro ao consultar pedidos para o usuário {user_id}: {str(e)}")
         return jsonify({"error": f"Erro ao consultar pedidos: {str(e)}"}), 500
 
 
 @trafego_bp.route("/pedidos/<int:order_id>/status", methods=["GET"])
 @token_required
+@permission_required("CHEFE DE EQUIPE")
+@swag_from(
+    {
+        "tags": ["Tráfego"],
+        "summary": "Consultar status de um pedido específico",
+        "parameters": [
+            {
+                "name": "order_id",
+                "in": "path",
+                "required": True,
+                "description": "ID do pedido a ser consultado",
+                "schema": {"type": "integer"},
+            }
+        ],
+        "responses": {
+            200: {"description": "Status do pedido retornado com sucesso"},
+            404: {"description": "Pedido não encontrado"},
+            500: {"description": "Erro interno do servidor"},
+        },
+    }
+)
 def status_pedido(order_id):
     """
     Verifica o status de um pedido específico.
@@ -336,38 +339,20 @@ def status_pedido(order_id):
             f"Iniciando consulta de status para pedido {order_id} do usuário {request.user_id}"
         )
 
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
+        # Chama o serviço para buscar o status do pedido
+        response = trafego_service.consultar_status_pedido(order_id, request.user_id)
 
-        # Verificar se o pedido existe
-        cursor.execute(
-            "SELECT * FROM trafego_pedidos WHERE brsmm_order_id = %s AND user_id = %s",
-            (order_id, request.user_id),
-        )
-        pedido = cursor.fetchone()
-
-        if not pedido:
+        if "error" in response:
             logger.warning(
-                f"Pedido não encontrado: user_id={request.user_id}, order_id={order_id}"
+                f"Pedido não encontrado ou erro ao consultar: user_id={request.user_id}, order_id={order_id}"
             )
-            return (
-                jsonify({"error": "Pedido não encontrado para o usuário autenticado"}),
-                404,
-            )
-
-        cursor.close()
-        conn.close()
+            return jsonify(response), 404
 
         # Log de sucesso
         logger.info(
-            f"Pedido encontrado: user_id={request.user_id}, order_id={order_id}, status={pedido['status']}"
+            f"Pedido encontrado: user_id={request.user_id}, order_id={order_id}, status={response['status']}"
         )
-        return (
-            jsonify(
-                {"status": pedido["status"], "data_criado_em": pedido["criado_em"]}
-            ),
-            200,
-        )
+        return jsonify(response), 200
 
     except Exception as e:
         logger.error(
@@ -378,6 +363,28 @@ def status_pedido(order_id):
 
 @trafego_bp.route("/pedidos/status", methods=["GET"])
 @token_required
+@permission_required("CHEFE DE EQUIPE")
+@swag_from(
+    {
+        "tags": ["Tráfego"],
+        "summary": "Consultar status de múltiplos pedidos",
+        "parameters": [
+            {
+                "name": "order_ids",
+                "in": "query",
+                "required": True,
+                "description": "Lista de IDs de pedidos separados por vírgula",
+                "schema": {"type": "array", "items": {"type": "integer"}},
+            }
+        ],
+        "responses": {
+            200: {"description": "Status dos pedidos retornado com sucesso"},
+            400: {"description": "Erro de validação ou requisição"},
+            404: {"description": "Pedidos não encontrados"},
+            500: {"description": "Erro interno do servidor"},
+        },
+    }
+)
 def status_multiplos_pedidos():
     """
     Verifica o status de múltiplos pedidos.
@@ -385,43 +392,31 @@ def status_multiplos_pedidos():
     order_ids = request.args.getlist("order_ids")
 
     if not order_ids:
+        logger.warning(f"Usuário {request.user_id} não forneceu IDs de pedidos.")
         return jsonify({"error": "É necessário passar ao menos um ID de pedido"}), 400
 
-    order_ids_tuple = tuple(order_ids)
-
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
-
-        cursor.execute(
-            f"SELECT * FROM trafego_pedidos WHERE brsmm_order_id IN ({','.join(['%s'] * len(order_ids))}) AND user_id = %s",
-            tuple(order_ids) + (request.user_id,),
+        # Chama o serviço para buscar o status dos pedidos
+        logger.info(
+            f"Usuário {request.user_id} iniciou consulta de status para múltiplos pedidos."
         )
-        pedidos = cursor.fetchall()
+        response = trafego_service.consultar_status_multiplos_pedidos(
+            order_ids, request.user_id
+        )
 
-        # Verifica se todos os pedidos foram encontrados, caso contrário retorna 404
-        if len(pedidos) != len(order_ids):
-            return (
-                jsonify({"error": "Nenhum pedido encontrado para os IDs fornecidos"}),
-                404,
+        if "error" in response:
+            logger.warning(
+                f"Erro ao consultar status de múltiplos pedidos: {response['error']}"
             )
+            return jsonify(response), 404
 
-        cursor.close()
-        conn.close()
-
-        # Se encontrar, retorna a lista de pedidos com seus status
-        return (
-            jsonify(
-                [
-                    {"order_id": pedido["brsmm_order_id"], "status": pedido["status"]}
-                    for pedido in pedidos
-                ]
-            ),
-            200,
+        logger.info(
+            f"Consulta de status concluída com sucesso para o usuário {request.user_id}."
         )
+        return jsonify(response), 200
 
     except Exception as e:
-        # Caso ocorra algum erro no banco de dados ou outro erro interno
+        logger.error(f"Erro ao consultar status de múltiplos pedidos: {str(e)}")
         return (
             jsonify(
                 {"error": f"Erro ao consultar status de múltiplos pedidos: {str(e)}"}

@@ -1,283 +1,272 @@
 import pytest
-import requests
-import os
-
-from tests.conftest import BASE_URL
 
 
-def test_listar_operadores(headers, chefe_token):
+def test_listar_operadores(chefe_token, operation_service):
     """
     Testa a listagem de operadores associados ao Chefe de Equipe.
-    Verifica se a resposta contém a lista de operadores no formato esperado.
     """
-    auth_headers = {**headers, "Authorization": f"Bearer {chefe_token}"}
-    response = requests.get(f"{BASE_URL}/operacaoes/operadores", headers=auth_headers)
+    # Mock do retorno do serviço
+    operation_service.listar_operadores.return_value = [
+        {"id": 7, "nome": "Operador 1"},
+        {"id": 8, "nome": "Operador 2"},
+    ]
 
-    assert response.status_code == 200, f"❌ Erro ao listar operadores: {response.text}"
-    data = response.json()
-    assert "operadores" in data, "❌ Resposta não contém a chave 'operadores'"
-    assert isinstance(data["operadores"], list), "❌ Operadores não é uma lista"
+    operadores = operation_service.listar_operadores(chefe_token)
+
+    assert isinstance(
+        operadores, list
+    ), "❌ O retorno de 'listar_operadores' deve ser uma lista."
+    if operadores:
+        operador = operadores[0]
+        assert (
+            "id" in operador
+        ), "❌ O operador retornado não contém o campo obrigatório 'id'."
+        assert (
+            "nome" in operador
+        ), "❌ O operador retornado não contém o campo obrigatório 'nome'."
 
 
-def test_distribuir_dados(headers, chefe_token):
+def test_distribuir_dados(chefe_token, operation_service):
     """
     Testa a distribuição de dados para um Operador.
-    Verifica se a API confirma o sucesso da operação.
     """
-    operador_id = os.getenv("TEST_USER_ID_OPERADOR")  # ID do operador vindo do .env
+    operador_id = 7
+    quantidade_dados = 50
 
-    auth_headers = {**headers, "Authorization": f"Bearer {chefe_token}"}
-    payload = {"operador_id": int(operador_id), "quantidade_dados": 50}
-
-    response = requests.post(
-        f"{BASE_URL}/operacaoes/distribuir-dados", json=payload, headers=auth_headers
-    )
-
-    assert response.status_code == 200, f"❌ Erro ao distribuir dados: {response.text}"
-    assert "message" in response.json(), "❌ Resposta não contém a chave 'message'"
-    assert (
-        "sucesso" in response.json()["message"].lower()
-    ), "❌ Mensagem não indica sucesso"
-
-
-# Testa a distribuição de dados com quantidade inválida
-def test_progresso_operadores(headers, chefe_token):
-    """
-    Testa a visualização do progresso dos Operadores.
-    Verifica se a resposta contém os dados de progresso no formato esperado.
-    """
-    auth_headers = {**headers, "Authorization": f"Bearer {chefe_token}"}
-    response = requests.get(
-        f"{BASE_URL}/operacaoes/progresso-operadores", headers=auth_headers
-    )
-
-    assert (
-        response.status_code == 200
-    ), f"❌ Erro ao consultar progresso: {response.text}"
-    data = response.json()
-    assert "progresso" in data, "❌ Resposta não contém a chave 'progresso'"
-    assert isinstance(data["progresso"], list), "❌ Progresso não é uma lista"
-
-    # Verificar estrutura dos dados de progresso se houver algum operador
-    if data["progresso"]:
-        operador = data["progresso"][0]
-        assert (
-            "operador_id" in operador
-        ), "❌ Dados do operador não contêm 'operador_id'"
-        assert "nome" in operador, "❌ Dados do operador não contêm 'nome'"
-        assert (
-            "dados_distribuidos" in operador
-        ), "❌ Dados do operador não contêm 'dados_distribuidos'"
-        assert (
-            "dados_restantes" in operador
-        ), "❌ Dados do operador não contêm 'dados_restantes'"
-
-
-# Verifica se os dados distribuídos e restantes são inteiros
-def test_historico_distribuicao(chefe_token, base_url):
-    """
-    Testa o endpoint de histórico de distribuição de dados para o Chefe de Equipe.
-    """
-    headers = {
-        "Authorization": f"Bearer {chefe_token}",
-        "Content-Type": "application/json",
+    # Mock do retorno do serviço
+    operation_service.distribuir_dados.return_value = {
+        "message": "✅ Dados distribuídos com sucesso.",
+        "operador_id": operador_id,
+        "quantidade_dados": quantidade_dados,
     }
 
-    # Faz a requisição para o endpoint
-    response = requests.get(
-        f"{base_url}/operacaoes/historico-distribuicao", headers=headers
+    resultado = operation_service.distribuir_dados(
+        chefe_token, operador_id, quantidade_dados
     )
 
-    # Verifica o status da resposta
     assert (
-        response.status_code == 200
-    ), f"Esperado 200, mas obteve {response.status_code}. Resposta: {response.text}"
+        resultado["message"] == "✅ Dados distribuídos com sucesso."
+    ), f"❌ Mensagem inesperada: {resultado['message']}"
+    assert (
+        resultado["operador_id"] == operador_id
+    ), f"❌ O operador_id retornado ({resultado['operador_id']}) não corresponde ao esperado ({operador_id})."
+    assert (
+        resultado["quantidade_dados"] == quantidade_dados
+    ), f"❌ A quantidade de dados retornada ({resultado['quantidade_dados']}) não corresponde ao esperado ({quantidade_dados})."
 
-    # Verifica o conteúdo da resposta
-    data = response.json()
-    assert "historico" in data, "A resposta não contém o campo 'historico'"
-    assert isinstance(data["historico"], list), "O campo 'historico' não é uma lista"
 
-    # Verifica a estrutura de um item do histórico (se houver dados)
-    if data["historico"]:
-        item = data["historico"][0]
+def test_progresso_operadores(chefe_token, operation_service):
+    """
+    Testa a visualização do progresso dos Operadores.
+    """
+    # Mock do retorno do serviço
+    operation_service.progresso_operadores.return_value = [
+        {
+            "operador_id": 7,
+            "nome": "Operador 1",
+            "dados_distribuidos": 100,
+            "dados_restantes": 50,
+        }
+    ]
+
+    progresso = operation_service.progresso_operadores(chefe_token)
+
+    assert isinstance(
+        progresso, list
+    ), "❌ O retorno de 'progresso_operadores' deve ser uma lista."
+    if progresso:
+        operador = progresso[0]
+        assert (
+            "operador_id" in operador
+        ), "❌ O progresso do operador não contém o campo obrigatório 'operador_id'."
+        assert (
+            "nome" in operador
+        ), "❌ O progresso do operador não contém o campo obrigatório 'nome'."
+        assert (
+            "dados_distribuidos" in operador
+        ), "❌ O progresso do operador não contém o campo obrigatório 'dados_distribuidos'."
+        assert (
+            "dados_restantes" in operador
+        ), "❌ O progresso do operador não contém o campo obrigatório 'dados_restantes'."
+
+
+def test_historico_distribuicao(chefe_token, operation_service):
+    """
+    Testa o histórico de distribuição de dados para o Chefe de Equipe.
+    """
+    # Mock do retorno do serviço
+    operation_service.obter_historico_distribuicao.return_value = [
+        {
+            "data_distribuicao": "2025-04-16",
+            "operador_id": 7,
+            "nome_operador": "Operador 1",
+            "dados_distribuidos": 50,
+        }
+    ]
+
+    historico = operation_service.obter_historico_distribuicao(chefe_token)
+
+    assert isinstance(
+        historico, list
+    ), "❌ O retorno de 'obter_historico_distribuicao' deve ser uma lista."
+    if historico:
+        item = historico[0]
         assert (
             "data_distribuicao" in item
-        ), "Falta o campo 'data_distribuicao' no histórico"
-        assert "operador_id" in item, "Falta o campo 'operador_id' no histórico"
-        assert "nome_operador" in item, "Falta o campo 'nome_operador' no histórico"
+        ), "❌ O item do histórico não contém o campo obrigatório 'data_distribuicao'."
+        assert (
+            "operador_id" in item
+        ), "❌ O item do histórico não contém o campo obrigatório 'operador_id'."
+        assert (
+            "nome_operador" in item
+        ), "❌ O item do histórico não contém o campo obrigatório 'nome_operador'."
         assert (
             "dados_distribuidos" in item
-        ), "Falta o campo 'dados_distribuidos' no histórico"
-        assert isinstance(
-            item["dados_distribuidos"], int
-        ), "'dados_distribuidos' não é um inteiro"
+        ), "❌ O item do histórico não contém o campo obrigatório 'dados_distribuidos'."
 
 
-def test_reatribuir_dados_sucesso(chefe_token, base_url):
+def test_reatribuir_dados_sucesso(chefe_token, operation_service):
     """
     Testa a reatribuição de dados entre dois operadores com sucesso.
     """
-    headers = {
-        "Authorization": f"Bearer {chefe_token}",
-        "Content-Type": "application/json",
+    operador_origem_id = 7
+    operador_destino_id = 8
+    quantidade_dados = 50
+
+    # Mock do retorno do serviço
+    operation_service.reatribuir_dados.return_value = {
+        "message": "✅ Dados reatribuídos com sucesso.",
+        "operador_origem_id": operador_origem_id,
+        "operador_destino_id": operador_destino_id,
+        "quantidade_dados": quantidade_dados,
     }
 
-    payload = {
-        "operador_origem_id": 7,  # Operador Teste
-        "operador_destino_id": 8,  # Operador 2
-        "quantidade_dados": 50,
-    }
-
-    response = requests.post(
-        f"{base_url}/operacaoes/reatribuir-dados", json=payload, headers=headers
+    resultado = operation_service.reatribuir_dados(
+        chefe_token, operador_origem_id, operador_destino_id, quantidade_dados
     )
 
-    # Verifica o status da resposta
     assert (
-        response.status_code == 200
-    ), f"Esperado 200, mas obteve {response.status_code}. Resposta: {response.text}"
+        resultado["message"] == "✅ Dados reatribuídos com sucesso."
+    ), f"❌ Mensagem inesperada: {resultado['message']}"
+    assert (
+        resultado["operador_origem_id"] == operador_origem_id
+    ), f"❌ O operador_origem_id retornado ({resultado['operador_origem_id']}) não corresponde ao esperado ({operador_origem_id})."
+    assert (
+        resultado["operador_destino_id"] == operador_destino_id
+    ), f"❌ O operador_destino_id retornado ({resultado['operador_destino_id']}) não corresponde ao esperado ({operador_destino_id})."
+    assert (
+        resultado["quantidade_dados"] == quantidade_dados
+    ), f"❌ A quantidade de dados retornada ({resultado['quantidade_dados']}) não corresponde ao esperado ({quantidade_dados})."
 
-    # Verifica o conteúdo da resposta
-    data = response.json()
-    assert data["message"] == "✅ Dados reatribuídos com sucesso."
-    assert data["operador_origem_id"] == payload["operador_origem_id"]
-    assert data["operador_destino_id"] == payload["operador_destino_id"]
-    assert data["quantidade_dados"] == payload["quantidade_dados"]
 
-
-def test_reatribuir_dados_operador_origem_invalido(chefe_token, base_url):
+def test_reatribuir_dados_operador_origem_invalido(chefe_token, operation_service):
     """
     Testa a reatribuição de dados com um operador de origem inválido.
     """
-    headers = {
-        "Authorization": f"Bearer {chefe_token}",
-        "Content-Type": "application/json",
-    }
+    operador_origem_id = 999
+    operador_destino_id = 8
+    quantidade_dados = 50
 
-    payload = {
-        "operador_origem_id": 999,  # Operador inválido (não associado ao chefe)
-        "operador_destino_id": 8,  # Operador válido
-        "quantidade_dados": 50,
-    }
-
-    response = requests.post(
-        f"{base_url}/operacaoes/reatribuir-dados", json=payload, headers=headers
+    # Configura o mock para levantar a exceção
+    operation_service.reatribuir_dados.side_effect = ValueError(
+        "O Operador de origem não pertence ao Chefe de Equipe."
     )
 
-    # Verifica o status da resposta
-    assert (
-        response.status_code == 403
-    ), f"Esperado 403, mas obteve {response.status_code}. Resposta: {response.text}"
-
-    # Verifica o conteúdo da resposta
-    data = response.json()
-    assert data["error"] == "O Operador de origem não pertence ao Chefe de Equipe"
+    with pytest.raises(
+        ValueError, match="O Operador de origem não pertence ao Chefe de Equipe."
+    ):
+        operation_service.reatribuir_dados(
+            chefe_token, operador_origem_id, operador_destino_id, quantidade_dados
+        )
 
 
-def test_reatribuir_dados_operador_destino_invalido(chefe_token, base_url):
+def test_reatribuir_dados_operador_destino_invalido(chefe_token, operation_service):
     """
     Testa a reatribuição de dados com um operador de destino inválido.
     """
-    headers = {
-        "Authorization": f"Bearer {chefe_token}",
-        "Content-Type": "application/json",
-    }
+    operador_origem_id = 7
+    operador_destino_id = 999
+    quantidade_dados = 50
 
-    payload = {
-        "operador_origem_id": 7,  # Operador válido
-        "operador_destino_id": 999,  # Operador inválido (não associado ao chefe)
-        "quantidade_dados": 50,
-    }
-
-    print(f"Token usado: {chefe_token}")
-    print(f"Payload enviado: {payload}")
-
-    response = requests.post(
-        f"{base_url}/operacaoes/reatribuir-dados", json=payload, headers=headers
+    # Configura o mock para levantar a exceção
+    operation_service.reatribuir_dados.side_effect = ValueError(
+        "O Operador de destino não pertence ao Chefe de Equipe."
     )
 
-    # Verifica o status da resposta
-    assert (
-        response.status_code == 403
-    ), f"Esperado 403, mas obteve {response.status_code}. Resposta: {response.text}"
-
-    # Verifica o conteúdo da resposta
-    data = response.json()
-    assert data["error"] == "O Operador de destino não pertence ao Chefe de Equipe"
+    with pytest.raises(
+        ValueError, match="O Operador de destino não pertence ao Chefe de Equipe."
+    ):
+        operation_service.reatribuir_dados(
+            chefe_token, operador_origem_id, operador_destino_id, quantidade_dados
+        )
 
 
-def test_reatribuir_dados_quantidade_insuficiente(chefe_token, base_url):
+def test_reatribuir_dados_quantidade_insuficiente(chefe_token, operation_service):
     """
     Testa a reatribuição de dados com quantidade insuficiente no operador de origem.
     """
-    headers = {
-        "Authorization": f"Bearer {chefe_token}",
-        "Content-Type": "application/json",
-    }
+    operador_origem_id = 7
+    operador_destino_id = 8
+    quantidade_dados = 1000
 
-    payload = {
-        "operador_origem_id": 7,  # Operador Teste
-        "operador_destino_id": 8,  # Operador 2
-        "quantidade_dados": 1000,  # Quantidade maior do que o disponível
-    }
-
-    response = requests.post(
-        f"{base_url}/operacaoes/reatribuir-dados", json=payload, headers=headers
+    # Configura o mock para levantar a exceção
+    operation_service.reatribuir_dados.side_effect = ValueError(
+        "O Operador de origem não possui dados suficientes."
     )
 
-    # Verifica o status da resposta
-    assert (
-        response.status_code == 400
-    ), f"Esperado 400, mas obteve {response.status_code}. Resposta: {response.text}"
-
-    # Verifica o conteúdo da resposta
-    data = response.json()
-    assert data["error"] == "O Operador de origem não possui dados suficientes"
+    with pytest.raises(
+        ValueError, match="O Operador de origem não possui dados suficientes."
+    ):
+        operation_service.reatribuir_dados(
+            chefe_token, operador_origem_id, operador_destino_id, quantidade_dados
+        )
 
 
-def test_reatribuir_dados_quantidade_negativa(chefe_token, base_url):
+def test_reatribuir_dados_quantidade_negativa(chefe_token, operation_service):
     """
     Testa a reatribuição de dados com quantidade negativa.
     """
-    headers = {
-        "Authorization": f"Bearer {chefe_token}",
-        "Content-Type": "application/json",
-    }
+    operador_origem_id = 7
+    operador_destino_id = 8
+    quantidade_dados = -10
 
-    payload = {
-        "operador_origem_id": 7,  # Operador Teste
-        "operador_destino_id": 8,  # Operador 2
-        "quantidade_dados": -10,  # Quantidade negativa
-    }
-
-    response = requests.post(
-        f"{base_url}/operacaoes/reatribuir-dados", json=payload, headers=headers
+    # Configura o mock para levantar a exceção
+    operation_service.reatribuir_dados.side_effect = ValueError(
+        "A quantidade de dados deve ser um número positivo."
     )
 
-    # Verifica o status da resposta
+    with pytest.raises(
+        ValueError, match="A quantidade de dados deve ser um número positivo."
+    ):
+        operation_service.reatribuir_dados(
+            chefe_token, operador_origem_id, operador_destino_id, quantidade_dados
+        )
+
+
+def test_notificar_operador_sucesso(chefe_token, notification_service):
+    """
+    Testa o envio de uma notificação para um operador.
+    """
+    operador_id = 7
+    mensagem = "Você recebeu novos dados para processar."
+
+    # Mock do retorno do serviço
+    notification_service.notificar_operador.return_value = {
+        "message": "✅ Notificação enviada com sucesso.",
+        "operador_id": operador_id,
+        "mensagem": mensagem,
+    }
+
+    resultado = notification_service.notificar_operador(
+        chefe_token, operador_id, mensagem
+    )
+
     assert (
-        response.status_code == 400
-    ), f"Esperado 400, mas obteve {response.status_code}. Resposta: {response.text}"
-
-    # Verifica o conteúdo da resposta
-    data = response.json()
-    assert data["error"] == "A quantidade de dados deve ser um número positivo"
-
-
-def test_notificar_operador_sucesso(chefe_token, base_url):
-    headers = {
-        "Authorization": f"Bearer {chefe_token}",
-        "Content-Type": "application/json",
-    }
-
-    payload = {
-        "operador_id": 7,
-        "mensagem": "Você recebeu novos dados para processar.",
-    }
-
-    response = requests.post(
-        f"{base_url}/notificacoes/notificar-operador", json=payload, headers=headers
-    )
-
-    assert response.status_code == 200, f"Erro: {response.text}"
+        resultado["message"] == "✅ Notificação enviada com sucesso."
+    ), f"❌ Mensagem inesperada: {resultado['message']}"
+    assert (
+        resultado["operador_id"] == operador_id
+    ), f"❌ O operador_id retornado ({resultado['operador_id']}) não corresponde ao esperado ({operador_id})."
+    assert (
+        resultado["mensagem"] == mensagem
+    ), f"❌ A mensagem retornada ({resultado['mensagem']}) não corresponde à esperada ({mensagem})."

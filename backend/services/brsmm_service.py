@@ -8,6 +8,49 @@ class BrsmmService:
         self.api_url = Config.BRSMM_API_URL
         self.api_key = Config.BRSMM_API_KEY
 
+    def sync_services_to_db(self):
+        """
+        Sincroniza os serviços da API BRSMM com o banco de dados local.
+        """
+        services = self.get_services()  # Obtém os serviços da API
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        try:
+            for service in services:
+                cursor.execute(
+                    """
+                    INSERT INTO trafego_servicos (
+                        brsmm_id, nome, categoria, tipo, preco_base, markup_percent, disponivel
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    ON DUPLICATE KEY UPDATE
+                        nome = VALUES(nome),
+                        categoria = VALUES(categoria),
+                        tipo = VALUES(tipo),
+                        preco_base = VALUES(preco_base),
+                        markup_percent = VALUES(markup_percent),
+                        disponivel = VALUES(disponivel)
+                    """,
+                    (
+                        service["service"],  # brsmm_id
+                        service["name"],  # nome
+                        service.get("category", "N/A"),  # categoria
+                        service.get("type", "N/A"),  # tipo
+                        service["rate"],  # preco_base
+                        20,  # markup_percent (exemplo fixo)
+                        True,  # disponivel
+                    ),
+                )
+            conn.commit()
+            print("✅ Serviços sincronizados com sucesso.")
+        except Exception as e:
+            conn.rollback()
+            raise Exception(f"Erro ao sincronizar serviços: {str(e)}")
+        finally:
+            cursor.close()
+            conn.close()
+
     def _post(self, payload):
         payload["key"] = self.api_key
         try:
@@ -36,10 +79,16 @@ class BrsmmService:
         return self._post({"action": "balance"})
 
     def registrar_pedido_usuario(
-        user_id, pedido_api, service_id, url, quantidade, preco_unitario, preco_total
+        self,
+        user_id,
+        pedido_api,
+        service_id,
+        url,
+        quantidade,
+        preco_total,
     ):
         """
-        Registra o pedido no banco de dados, associando ao usuário autenticado.
+        Registra o pedido no banco de dados.
         """
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -48,9 +97,9 @@ class BrsmmService:
             cursor.execute(
                 """
                 INSERT INTO trafego_pedidos (
-                    user_id, brsmm_order_id, service_id, url,
-                    quantidade, preco_unitario, preco_total, status, criado_em
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW())
+                    user_id, brsmm_order_id, service_id, url, quantidade, preco_total, status, criado_em
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
                 """,
                 (
                     user_id,
@@ -58,15 +107,14 @@ class BrsmmService:
                     service_id,
                     url,
                     quantidade,
-                    preco_unitario,
                     preco_total,
-                    pedido_api.get("status", "Pendente"),
+                    pedido_api.get("status", "Em andamento"),
                 ),
             )
             conn.commit()
-            print(f"✅ Pedido do usuário {user_id} registrado com sucesso.")
         except Exception as e:
-            print(f"❌ Erro ao registrar pedido no banco: {e}")
+            conn.rollback()
+            raise Exception(f"Erro ao registrar pedido no banco: {str(e)}")
         finally:
             cursor.close()
             conn.close()

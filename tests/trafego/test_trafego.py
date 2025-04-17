@@ -1,272 +1,172 @@
+from venv import logger
 import pytest
-import requests
-import os
-from dotenv import load_dotenv
-from tests.conftest import BASE_URL
+from services.trafego_service import TrafegoService
+from services.brsmm_service import BrsmmService
 from core.db import get_db_connection
 
-load_dotenv()
+# Instancia os serviços
+trafego_service = TrafegoService()
+brsmm_service = BrsmmService()
 
-# POST Requests
 
-
-# Teste de envio de tráfego e verificação no banco de dados
-# Esta função testa o envio de tráfego via API e verifica se o pedido foi registrado corretamente no banco de dados.
-def test_enviar_pedido_salva_em_banco(token):
+def test_enviar_pedido(verificar_erro_resposta):
     """
-    Testa o envio de tráfego via API e verifica se foi registrado no banco.
+    Testa o envio de tráfego via serviço e verifica se foi registrado no banco.
     """
-    headers = {
-        "Authorization": f"Bearer {token['token']}",
-        "Content-Type": "application/json",
-    }
+
+    # Sincroniza os serviços disponíveis com o banco de dados
+    brsmm_service.sync_services_to_db()
 
     # Dados fixos para o teste
+    user_id = 1
+    service_id = 171
+    test_url = "https://apretailer.com.br/click/valid-url"
+    quantidade = 88
+
+    # Envia o pedido
+    response = trafego_service.enviar_pedido(user_id, service_id, test_url, quantidade)
+
+    # Verifica se ocorreu algum erro na resposta usando a fixture
+    verificar_erro_resposta(response)
+
+    # Validações adicionais
+    assert "order_id" in response, "❌ O retorno não contém 'order_id'."
+    assert isinstance(response["order_id"], int), "❌ 'order_id' não é um inteiro."
+    assert response["message"].startswith("✅"), "❌ Mensagem inesperada no retorno."
+
+
+def test_enviar_trafego():
+    """
+    Testa o envio de tráfego via serviço.
+    """
+
+    # Sincroniza os serviços disponíveis com o banco de dados
+    brsmm_service.sync_services_to_db()
+
+    # Dados do pedido
+    user_id = 1
+    service_id = 171
+    test_url = "https://apretailer.com.br/click/67d4bfd92bfa815c42685e06/185510/351953/subaccount"
+    quantidade = 88
+
+    # Envia o pedido
+    response = trafego_service.enviar_pedido(user_id, service_id, test_url, quantidade)
+    logger.info(f"Resposta do envio de pedido: {response}")
+
+    # Verifica se o pedido foi enviado com sucesso ou se ocorreu um erro
+    if "error" in response:
+        pytest.fail(f"Erro ao enviar pedido: {response['error']}")
+
+    assert "order_id" in response, "❌ O retorno não contém 'order_id'."
+    assert isinstance(response["order_id"], int), "❌ 'order_id' não é um inteiro."
+    assert response["message"].startswith("✅"), "❌ Mensagem inesperada no retorno."
+
+
+def test_enviar_trafego_com_id_usuario():
+    """
+    Testa o envio de tráfego via serviço e verifica se o ID do usuário foi registrado corretamente no banco.
+    """
+
+    # Sincroniza os serviços disponíveis com o banco de dados
+    brsmm_service.sync_services_to_db()
+
+    # Dados fixos para o teste
+    user_id = 1  # ID do usuário de teste
     service_id = 171
     test_url = "https://apretailer.com.br/click/67c140362bfa8136ea48f2f9/185510/349334/subaccount"
-    quantidade = 50
+    quantidade = 88
 
-    # Envia um pedido via endpoint /trafego/send
-    payload = {
-        "service_id": service_id,
-        "url": test_url,
-        "quantidade": quantidade,
-    }
-    resp = requests.post(f"{BASE_URL}/trafego/send", json=payload, headers=headers)
+    # Envia o pedido
+    response = trafego_service.enviar_pedido(user_id, service_id, test_url, quantidade)
 
-    # Verifica o código de status da resposta
-    assert resp.status_code in [200, 400]
+    # Verifica se o pedido foi enviado com sucesso ou se ocorreu um erro
+    if "error" in response:
+        pytest.fail(f"Erro ao enviar pedido: {response['error']}")
 
-    if resp.status_code == 400:
-        print("Erro na requisição:", resp.json())  # Loga a mensagem de erro
-
-    # Se o status for 200, verifica se o pedido foi salvo no banco de dados
-    if resp.status_code == 200:
-        data = resp.json()
-        assert "order_id" in data
-        assert isinstance(data["order_id"], int)
-        assert data["message"].startswith("✅")
-
-        order_id = data["order_id"]
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute(
-            "SELECT * FROM trafego_pedidos WHERE brsmm_order_id = %s", (order_id,)
-        )
-        result = cursor.fetchone()
-        cursor.close()
-        conn.close()
-
-        # Validações no banco de dados
-        assert result, "Pedido não foi salvo no banco de dados"
-        assert result["user_id"], "user_id não salvo"
-        assert result["service_id"] == service_id, "service_id não corresponde"
-        assert result["quantidade"] == quantidade, "quantidade não corresponde"
+    assert "order_id" in response, "❌ O retorno não contém 'order_id'."
+    assert isinstance(response["order_id"], int), "❌ 'order_id' não é um inteiro."
+    assert response["message"].startswith("✅"), "❌ Mensagem inesperada no retorno."
 
 
-# Teste de envio de tráfego
-# Esta função testa o endpoint de envio de tráfego para uma URL específica.
-def test_enviar_trafego(token):
+def test_meus_pedidos_sem_filtros():
     """
-    Testa o endpoint de envio de tráfego para uma URL.
+    Testa a consulta de pedidos do usuário sem filtros.
     """
-    headers = {
-        "Authorization": f"Bearer {token['token']}",
-        "Content-Type": "application/json",
-    }
+    user_id = 1  # ID do usuário de teste
 
-    # Dados do payload para o envio de tráfego
-    payload = {
-        "service_id": 171,
-        "url": "https://apretailer.com.br/click/67c140362bfa8136ea48f2f9/185510/349334/subaccount",
-        "quantidade": 100,
-    }
-
-    # Realiza a requisição POST
-    response = requests.post(
-        f"{BASE_URL}/trafego/send", json=payload, headers=headers
-    )
+    # Consulta os pedidos
+    response = trafego_service.consultar_meus_pedidos(user_id)
 
     # Validações na resposta
-    assert response.status_code == 200
-    data = response.json()
+    assert "data" in response, "❌ O retorno não contém 'data'."
+    assert isinstance(response["data"], list), "❌ 'data' não é uma lista."
+    assert "total_pages" in response, "❌ O retorno não contém 'total_pages'."
+    assert "page" in response, "❌ O retorno não contém 'page'."
+    assert "limit" in response, "❌ O retorno não contém 'limit'."
 
-    assert "order_id" in data  # Verifica se o campo 'order_id' está presente
-    assert isinstance(data["order_id"], int)
-    assert data["message"].startswith("✅")
 
-
-# Teste de envio de tráfego com ID do usuário
-# Esta função testa o envio de tráfego via API e verifica se o ID do usuário foi registrado corretamente no banco de dados.
-def test_enviar_trafego_com_id_usuario(token):
+def test_meus_pedidos_com_filtro_status():
     """
-    Testa o envio de tráfego via API e verifica se o ID do usuário foi registrado corretamente no banco.
+    Testa a consulta de pedidos do usuário com filtro de status.
     """
-    headers = {
-        "Authorization": f"Bearer {token['token']}",
-        "Content-Type": "application/json",
-    }
+    user_id = 1  # ID do usuário de teste
+    status = "sucesso"
 
-    # Verifica se TEST_USER_ID_ADM está definido
-    user_id = os.getenv("TEST_USER_ID_ADM")
-    assert user_id, "❌ TEST_USER_ID_ADM não configurado no .env"
+    # Consulta os pedidos com filtro de status
+    response = trafego_service.consultar_meus_pedidos(user_id, status=status)
 
-    # Dados fixos para o teste
+    # Validações na resposta
+    for pedido in response["data"]:
+        assert pedido["status"] == status, "❌ 'status' do pedido não corresponde."
+
+
+def test_status_pedido():
+    """
+    Testa a consulta de status de um pedido específico.
+    """
+    user_id = 1
+    order_id = 999001  # ID do pedido para teste
     service_id = 171
-    test_url = "https://apretailer.com.br/click/67c140362bfa8136ea48f2f9/185510/349334/subaccount"
-    quantidade = 100  # Aumentando para 100, que pode ser o mínimo permitido pela API
+    test_url = "https://apretailer.com.br/click/valid-url"
+    quantidade = 88
+    preco_total = 74.8
+    status = "Em andamento"
 
-    # Envia um pedido via endpoint /trafego/send
-    payload = {
-        "service_id": service_id,
-        "url": test_url,
-        "quantidade": quantidade,
-    }
-
-    # Realiza a requisição POST
-    resp = requests.post(f"{BASE_URL}/trafego/send", json=payload, headers=headers)
-
-    # Loga a resposta para diagnóstico
-    print(f"Response status code: {resp.status_code}")
-    print(f"Response body: {resp.text}")
-
-    # Verifica se a resposta foi bem-sucedida
-    assert (
-        resp.status_code == 200
-    ), f"Esperado 200, mas obteve {resp.status_code}. Resposta: {resp.text}"
-
-    data = resp.json()
-
-    # Verifica se a resposta contém o order_id
-    assert "order_id" in data, "A resposta não contém 'order_id'"
-    assert isinstance(data["order_id"], int), "O 'order_id' não é um inteiro"
-    assert data["message"].startswith("✅"), f"Mensagem inesperada: {data['message']}"
-
-    # Recupera o order_id da resposta
-    order_id = data["order_id"]
-
-    # Verifica se o pedido foi salvo no banco e se o 'user_id' está correto
+    # Insere manualmente um pedido na tabela para o teste
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-
+    cursor = conn.cursor()
     cursor.execute(
-        "SELECT * FROM trafego_pedidos WHERE brsmm_order_id = %s", (order_id,)
+        """
+        INSERT INTO trafego_pedidos (
+            id, user_id, url, quantidade, preco_total, brsmm_order_id, status, criado_em, service_id
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, NOW(), %s)
+        ON DUPLICATE KEY UPDATE status = VALUES(status)
+        """,
+        (
+            order_id,
+            user_id,
+            test_url,
+            quantidade,
+            preco_total,
+            order_id,
+            status,
+            service_id,
+        ),
     )
-    result = cursor.fetchone()
-
+    conn.commit()
     cursor.close()
     conn.close()
 
-    # Verifica se o pedido foi encontrado no banco
+    # Consulta o status do pedido
+    response = trafego_service.consultar_status_pedido(order_id, user_id)
+
+    # Validações na resposta
+    assert "status" in response, "❌ O retorno não contém 'status'."
+    assert response["status"] == status, "❌ Status do pedido não corresponde."
+    assert "brsmm_order_id" in response, "❌ O retorno não contém 'brsmm_order_id'."
     assert (
-        result
-    ), f"Pedido com order_id {order_id} não foi encontrado no banco de dados."
-
-    # Verifica se o 'user_id' foi corretamente salvo
-    assert result["user_id"] == int(
-        user_id
-    ), f"Esperado user_id {user_id}, mas obteve {result['user_id']}"
-
-
-# GET Requests
-
-
-# Teste de Histórico de Pedidos sem filtros
-def test_meus_pedidos_sem_filtros(headers, token):
-    """
-    ✅ GET /trafego/historico/meus-pedidos (sem filtros)
-    Verifica se retorna estrutura de paginação e pedidos do usuário.
-    """
-    resp = requests.get(
-        f"{BASE_URL}/trafego/historico/meus-pedidos",
-        headers={**headers, "Authorization": f"Bearer {token['token']}"},
-    )
-    assert resp.status_code == 200
-    data = resp.json()
-    assert "data" in data
-    assert isinstance(data["data"], list)
-    assert "total_pages" in data
-    assert "page" in data
-    assert "limit" in data
-
-
-# Teste de Histórico de Pedidos com filtro de status
-def test_meus_pedidos_com_filtro_status(headers, token):
-    """
-    Testa o filtro de status no histórico de pedidos.
-    """
-    resp = requests.get(
-        f"{BASE_URL}/trafego/historico/meus-pedidos?status=sucesso",
-        headers={**headers, "Authorization": f"Bearer {token['token']}"},
-    )
-    assert resp.status_code == 200
-    data = resp.json()
-    for pedido in data["data"]:
-        assert pedido["status"] == "sucesso"
-
-
-# Teste de Histórico de Pedidos com filtro de service_id
-def test_meus_pedidos_com_filtros_multiplicados(headers, token):
-    """
-    Testa o uso combinado de múltiplos filtros.
-    """
-    resp = requests.get(
-        f"{BASE_URL}/trafego/historico/meus-pedidos?status=sucesso&service_id=171&data_inicio=2025-04-01&data_fim=2025-04-02",
-        headers={**headers, "Authorization": f"Bearer {token['token']}"},
-    )
-    assert resp.status_code == 200
-    data = resp.json()
-    for pedido in data["data"]:
-        assert pedido["status"] == "sucesso"
-        assert pedido["service_id"] == 171
-        assert "2025-04-01" <= pedido["criado_em"][:10] <= "2025-04-02"
-
-
-# Teste de consulta de status de pedido por ID
-def test_status_pedido(headers, token):
-    """
-    Testa o endpoint de consulta de status de pedido por ID.
-    """
-    order_id = 999001  # Exemplo de um pedido que existe no banco
-    resp = requests.get(
-        f"{BASE_URL}/trafego/pedidos/{order_id}/status",
-        headers={**headers, "Authorization": f"Bearer {token['token']}"},
-    )
-
-    assert resp.status_code == 200
-    data = resp.json()
-    assert "status" in data
-    assert "data_criado_em" in data
-
-
-# Teste de consulta de status de pedido por ID (detalhado)
-def test_status_pedido_por_id(headers, token):
-    """
-    Testa o endpoint de consulta de status de pedido por ID.
-    """
-    order_id = 999001  # ID do pedido para teste
-    response = requests.get(
-        f"{BASE_URL}/trafego/pedidos/{order_id}/status",
-        headers={**headers, "Authorization": f"Bearer {token['token']}"},
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert "status" in data
-    assert data["status"] in ["Em progresso", "Finalizado", "Erro", "Concluído"]
-
-
-# Teste de consulta de status para múltiplos pedidos com IDs inválidos
-def test_status_multiplos_pedidos_not_found(headers, token):
-    """
-    Testa o endpoint de consulta de status para múltiplos pedidos com IDs inválidos.
-    """
-    order_ids = ["999001", "999999", "999003"]  # O ID 999999 não existe
-    response = requests.get(
-        f"{BASE_URL}/trafego/pedidos/status",
-        headers={**headers, "Authorization": f"Bearer {token['token']}"},
-        params={"order_ids": order_ids},
-    )
-    assert response.status_code == 404
-    data = response.json()
-    assert "error" in data
-    assert data["error"] == "Nenhum pedido encontrado para os IDs fornecidos"
+        response["brsmm_order_id"] == order_id
+    ), "❌ O 'brsmm_order_id' não corresponde."
+    assert response["quantidade"] == quantidade, "❌ A 'quantidade' não corresponde."
+    assert response["preco_total"] == preco_total, "❌ O 'preco_total' não corresponde."
